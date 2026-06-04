@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { normalizeCalls } from '../lib/normalize-calls.js'
+import { SectorOneError } from '../lib/errors.js'
 
 describe('normalizeCalls', () => {
   it('removes from and preserves order', () => {
@@ -53,5 +54,35 @@ describe('normalizeCalls', () => {
       }
     ])
     expect(result.calls[0]?.data).toBe('0x')
+  })
+
+  it('rejects malformed (odd-length / non-hex) data', () => {
+    expect(() =>
+      normalizeCalls([
+        {
+          to: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+          data: '0x123' as `0x${string}`
+        }
+      ])
+    ).toThrow(SectorOneError)
+    expect(() =>
+      normalizeCalls([
+        {
+          to: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+          data: 'deadbeef' as `0x${string}`
+        }
+      ])
+    ).toThrow(SectorOneError)
+  })
+
+  it('rejects negative value', () => {
+    expect(() =>
+      normalizeCalls([
+        {
+          to: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+          value: -1
+        }
+      ])
+    ).toThrow(SectorOneError)
   })
 })

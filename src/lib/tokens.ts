@@ -29,3 +29,24 @@ export function defaultBaseTokens(): Token[] {
 export function isWethAddress(address: Address): boolean {
   return getAddress(address) === getAddress(WETH_ADDRESS)
 }
+
+/**
+ * Parse a `--base-token` CLI value into a Token.
+ * Accepts `0xaddress` (defaults to 18 decimals) or `0xaddress:decimals`.
+ * Hardcoding 18 decimals corrupts multi-hop route math for non-18-decimal
+ * tokens (e.g. USDC), so decimals are explicit and validated.
+ */
+export function parseBaseTokenArg(value: string, index: number): Token {
+  const [addr, decimalsPart] = value.split(':')
+  let decimals = 18
+  if (decimalsPart !== undefined && decimalsPart !== '') {
+    const parsed = Number(decimalsPart)
+    if (!Number.isInteger(parsed) || parsed < 0 || parsed > 36) {
+      throw new Error(
+        `Invalid base-token decimals in "${value}". Use 0xADDRESS or 0xADDRESS:DECIMALS (0-36).`
+      )
+    }
+    decimals = parsed
+  }
+  return makeToken({ address: addr ?? value, decimals, symbol: `BASE${index}` })
+}

@@ -34,6 +34,7 @@ export function registerBuildAddLiquidity(program: Command): void {
     .option('--native-x', 'Token X is native ETH (WETH side)')
     .option('--native-y', 'Token Y is native ETH (WETH side)')
     .option('--infinite-approval', 'Infinite ERC-20 approvals')
+    .option('--confirm-high-slippage', 'Allow very high (>20%) slippage after explicit user confirmation')
     .option('--json', 'JSON output to stdout')
     .action(async (opts) => {
       assertBaseChainOnly()
@@ -43,7 +44,7 @@ export function registerBuildAddLiquidity(program: Command): void {
       const ttl = parseTtlSeconds(Number(opts.ttl))
 
       for (const bps of [amountSlippageBps, priceSlippageBps]) {
-        const level = assertSlippageSafe(bps)
+        const level = assertSlippageSafe(bps, !opts.confirmHighSlippage)
         if (level !== 'normal') {
           writeWarning(`Slippage ${bps} bps is ${level}.`)
         }

@@ -7,7 +7,7 @@ import {
   formatQuoteOutput,
   quoteExactInput
 } from '../lib/dlmm.js'
-import { makeToken } from '../lib/tokens.js'
+import { makeToken, parseBaseTokenArg } from '../lib/tokens.js'
 import {
   assertBaseChainOnly,
   assertSlippageSafe,
@@ -33,14 +33,15 @@ export function registerBuildSwap(program: Command): void {
     .option('--ttl <n>', 'Deadline TTL seconds', '1200')
     .option('--native-in', 'Input is native ETH')
     .option('--native-out', 'Output is native ETH')
-    .option('--base-token <address>', 'Routing base token', collectStrings, [])
+    .option('--base-token <address[:decimals]>', 'Routing base token, decimals default 18 (repeatable)', collectStrings, [])
     .option('--infinite-approval', 'Use infinite ERC-20 approval')
+    .option('--confirm-high-slippage', 'Allow very high (>20%) slippage after explicit user confirmation')
     .option('--json', 'JSON output to stdout')
     .action(async (opts) => {
       assertBaseChainOnly()
       const slippageBps = parseSlippageBps(Number(opts.slippageBps))
       const ttl = parseTtlSeconds(Number(opts.ttl))
-      const level = assertSlippageSafe(slippageBps)
+      const level = assertSlippageSafe(slippageBps, !opts.confirmHighSlippage)
       if (level !== 'normal') {
         writeWarning(
           `Slippage ${slippageBps} bps is ${level}. Confirm with the user before send_calls.`
@@ -57,9 +58,7 @@ export function registerBuildSwap(program: Command): void {
         decimals: parseDecimals(Number(opts.tokenOutDecimals), 'token-out-decimals')
       })
 
-      const baseTokens = (opts.baseToken as string[]).map((addr: string, i: number) =>
-        makeToken({ address: addr, decimals: 18, symbol: `BASE${i}` })
-      )
+      const baseTokens = (opts.baseToken as string[]).map(parseBaseTokenArg)
 
       const client = createBasePublicClient()
       const amountInRaw = parseTokenAmount(opts.amountIn, tokenIn.decimals)

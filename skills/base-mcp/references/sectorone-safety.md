@@ -26,7 +26,7 @@ Never use `walletClient.writeContract`, `cast send`, browser wallet signers, or 
 | `<= 100` | `<= 1%` | Normal — proceed. |
 | `101–500` | `1–5%` | Elevated — warn and require explicit confirmation. |
 | `501–2000` | `5–20%` | High — strong warning and explicit confirmation. |
-| `> 2000` | `> 20%` | Very high — do not proceed unless the user re-confirms the exact bps. |
+| `> 2000` | `> 20%` | Very high — `build-swap` / `build-add-liquidity` **refuse to emit calldata** unless `--confirm-high-slippage` is passed after explicit user re-confirmation. |
 
 Default CLI slippage: **50 bps** (0.5%).
 

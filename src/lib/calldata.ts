@@ -16,11 +16,10 @@ export function encodeRouterCall(params: {
 export function toMcpCall(to: `0x${string}`, data: Hex, value?: bigint | string): McpCall {
   let hexValue: `0x${string}` = '0x0'
   if (value !== undefined && value !== '0x0' && value !== 0n && value !== '0') {
-    const asBig =
-      typeof value === 'string' && value.startsWith('0x')
-        ? BigInt(value)
-        : BigInt(value)
-    hexValue = `0x${asBig.toString(16)}` as `0x${string}`
+    const asBig = BigInt(value)
+    if (asBig !== 0n) {
+      hexValue = `0x${asBig.toString(16)}` as `0x${string}`
+    }
   }
   return { to, data, value: hexValue }
 }

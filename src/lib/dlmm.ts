@@ -3,7 +3,6 @@ import {
   Bin,
   LBRouterV22ABI,
   LB_ROUTER_V22_ADDRESS,
-  LBRouterV21ABI,
   LB_ROUTER_ADDRESS,
   LBRouterABI,
   LIQUIDITY_HELPER_V2_ADDRESS,
@@ -69,9 +68,7 @@ export function getRouterAddress(version: LbVersion): Address {
 }
 
 export function getRouterAbi(version: LbVersion) {
-  if (version === 'v22') return LBRouterV22ABI
-  if (version === 'v2') return LBRouterABI
-  return LBRouterV21ABI
+  return version === 'v22' ? LBRouterV22ABI : LBRouterABI
 }
 
 export function resolveSwapTarget(quote: Quote): {
@@ -218,6 +215,19 @@ export async function buildAddLiquidityCalls(params: {
   pairAddress: Address
   activeId: number
 }> {
+  if (params.nativeX && !isWethAddress(getAddress(params.tokenX.address))) {
+    throw new SectorOneError(
+      'INVALID_NATIVE_SIDE',
+      '--native-x requires token-x to be WETH (0x4200...0006), the native ETH side on Base.'
+    )
+  }
+  if (params.nativeY && !isWethAddress(getAddress(params.tokenY.address))) {
+    throw new SectorOneError(
+      'INVALID_NATIVE_SIDE',
+      '--native-y requires token-y to be WETH (0x4200...0006), the native ETH side on Base.'
+    )
+  }
+
   const sdkClient = asSdkClient(params.client)
   const pairEntity = new PairV2(params.tokenX, params.tokenY)
   const lbPair = await pairEntity.fetchLBPair(
@@ -399,51 +409,63 @@ export function formatQuoteOutput(params: {
   }
 }
 
-function normalizeSwapArgs(
+/**
+ * Rebuild SDK swap args into ABI-ready args for the resolved router.
+ *
+ * The SDK emits one of three EXACT_INPUT layouts depending on native legs:
+ *   - swapExactNATIVEForTokens: [amountOutMin, path, to, deadline]
+ *   - swapExactTokensForNATIVE: [amountIn, amountOutMin, path, to, deadline]
+ *   - swapExactTokensForTokens: [amountIn, amountOutMin, path, to, deadline]
+ *
+ * Positions are derived from the path object (not hardcoded indices) so native
+ * and non-native legs are handled identically. For the v2.0 router the path is
+ * flattened to (pairBinSteps[], tokenPath[]) with no versions array; for v2.2
+ * the Path struct is preserved.
+ */
+export function normalizeSwapArgs(
   args: ReturnType<TradeV2['swapCallParameters']>['args'],
   version: LbVersion
 ): readonly unknown[] {
-  const pathArg = args.find(
-    (a): a is { pairBinSteps: string[]; versions: readonly number[]; tokenPath: readonly string[] } =>
-      typeof a === 'object' && a !== null && 'pairBinSteps' in a
+  const pathIndex = args.findIndex(
+    (a) => typeof a === 'object' && a !== null && 'pairBinSteps' in a
   )
 
-  if (version === 'v2' && pathArg) {
-    const amountIn = BigInt(String(args[0]))
-    const amountOutMin = BigInt(String(args[1]))
-    const to = getAddress(String(args[3]))
-    const deadline = BigInt(String(args[4]))
-    return [
-      amountIn,
-      amountOutMin,
-      pathArg.pairBinSteps.map((s) => BigInt(s)),
-      pathArg.tokenPath.map((t) => getAddress(t)),
-      to,
-      deadline
-    ]
+  if (pathIndex === -1) {
+    throw new SectorOneError(
+      'INVALID_SWAP_ARGS',
+      'Swap parameters are missing the router path.'
+    )
   }
 
-  return args.map((arg, index) => {
-    if (typeof arg === 'object' && arg !== null && 'pairBinSteps' in arg) {
-      const path = arg as {
-        pairBinSteps: string[]
-        versions: readonly number[]
-        tokenPath: readonly string[]
-      }
-      return {
-        pairBinSteps: path.pairBinSteps.map((s) => BigInt(s)),
-        versions: [...path.versions],
-        tokenPath: path.tokenPath.map((t) => getAddress(t))
-      }
-    }
-    if (index === 3 && typeof arg === 'string') {
-      return getAddress(arg)
-    }
-    if (typeof arg === 'string' && arg.startsWith('0x')) {
-      return BigInt(arg)
-    }
-    return arg
-  })
+  const pathArg = args[pathIndex] as {
+    pairBinSteps: string[]
+    versions: readonly number[]
+    tokenPath: readonly string[]
+  }
+
+  const leadingAmounts = args
+    .slice(0, pathIndex)
+    .map((a) => BigInt(String(a)))
+  const to = getAddress(String(args[pathIndex + 1]))
+  const deadline = BigInt(String(args[pathIndex + 2]))
+
+  const pairBinSteps = pathArg.pairBinSteps.map((s) => BigInt(s))
+  const tokenPath = pathArg.tokenPath.map((t) => getAddress(t))
+
+  if (version === 'v2') {
+    return [...leadingAmounts, pairBinSteps, tokenPath, to, deadline]
+  }
+
+  return [
+    ...leadingAmounts,
+    {
+      pairBinSteps,
+      versions: [...pathArg.versions],
+      tokenPath
+    },
+    to,
+    deadline
+  ]
 }
 
 export function parseDistribution(name: string): LiquidityDistribution {
