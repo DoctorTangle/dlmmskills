@@ -1,0 +1,30 @@
+{
+  "name": "dlmmskills",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SectorOne DLMM skill and CLI for Base MCP send_calls",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/cli/sectorone.ts",
+    "sectorone": "tsx src/cli/sectorone.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "bootstrap": "node scripts/bootstrap-sectorone.mjs && node scripts/build-sectorone-sdk.mjs",
+    "preinstall": "node scripts/bootstrap-sectorone.mjs",
+    "postinstall": "node scripts/build-sectorone-sdk.mjs"
+  },
+  "dependencies": {
+    "@sectorone/sdk-core": "file:./_sectorone-ref/packages/core",
+    "@sectorone/sdk-v2": "file:./_sectorone-ref/packages/v2",
+    "commander": "^12.0.0",
+    "dotenv": "^16.0.0",
+    "viem": "^2.5.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0"
+  }
+}
