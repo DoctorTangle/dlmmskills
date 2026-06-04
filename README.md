@@ -4,7 +4,8 @@ Production-quality **SectorOne DLMM** skill and TypeScript CLI for AI agents usi
 
 ## What This Is
 
-- Base-MCP-compatible plugin docs under `skills/base-mcp/`
+- Agent skill under `skills/sectorone-dlmm/` (install via `npx skills add`)
+- Legacy Base-MCP layout also under `skills/base-mcp/`
 - CLI (`npm run sectorone`) backed by `@sectorone/sdk-v2` and `viem`
 - Normalization helper for Base MCP `send_calls` format
 
@@ -19,11 +20,36 @@ The user approves transactions in **Base Account** via Base MCP.
 
 ## Install
 
+### For AI agents (Cursor, Claude Code, Codex)
+
+**Phase 1 — skill instructions** (markdown only):
+
+```bash
+npx skills add DoctorTangle/dlmmskills --skill sectorone-dlmm -a cursor -y
+```
+
+Add other agents with `-a claude-code`, `-a codex`, etc. List available skills: `npx skills add DoctorTangle/dlmmskills --list`.
+
+**Phase 2 — CLI** (required for quotes and calldata):
+
 ```bash
 git clone https://github.com/DoctorTangle/dlmmskills.git
 cd dlmmskills
 cp .env.example .env
 # edit BASE_RPC_URL if needed
+npm install
+```
+
+**Phase 3 — Base MCP** — connect [Base MCP](https://docs.base.org/ai-agents/quickstart) in your host before write flows.
+
+Run Phase 1 and Phase 2 in the **same project directory** when possible so the agent can execute `npm run sectorone` from the cloned repo.
+
+### CLI only (no Skills CLI)
+
+```bash
+git clone https://github.com/DoctorTangle/dlmmskills.git
+cd dlmmskills
+cp .env.example .env
 npm install
 ```
 
@@ -58,9 +84,9 @@ Use `--json` on any command that returns structured data (stdout = JSON only).
 
 ## Base MCP Usage
 
-1. Complete Base MCP onboarding (`SKILL.md` in base/skills).
+1. Complete Base MCP onboarding ([skills/sectorone-dlmm/SKILL.md](skills/sectorone-dlmm/SKILL.md)).
 2. `get_wallets` → pass address to `--wallet`.
-3. Run e.g. `pnpm sectorone build-swap ... --json`.
+3. Run e.g. `npm run sectorone -- build-swap ... --json`.
 4. Submit:
 
 ```json
@@ -74,9 +100,10 @@ via `send_calls`.
 
 Skill entry points for agents:
 
-- `SKILL.md` (repo root) — auto-discovery for Cursor/Claude/Codex
-- `skills/base-mcp/SKILL.md` — Base MCP onboarding flow
-- `skills/base-mcp/plugins/sectorone.md` — full command playbook
+- **`skills/sectorone-dlmm/SKILL.md`** — canonical skill (`npx skills add DoctorTangle/dlmmskills --skill sectorone-dlmm`)
+- `skills/sectorone-dlmm/plugin.md` — full command playbook
+- `SKILL.md` (repo root) — pointer to the canonical skill
+- `skills/base-mcp/` — legacy layout (deprecated; see note in that folder)
 
 ## Safety
 
@@ -88,7 +115,7 @@ Skill entry points for agents:
 - `normalize-calls` prints a risk summary (stderr) and rejects non-SectorOne / non-approve calls by default (strict mode); use `--allow-unknown-targets` to opt out
 - Default **`--lb-version v2`** (Joe 2.0 / LB v2.0) — most Base liquidity; use `v22` for newer pools; **v2.1** not deployed on Base
 - CI fails on **critical** vulnerabilities in the **production** dependency tree (`npm audit --omit=dev --audit-level=critical`); a full `npm audit --audit-level=high` runs non-blocking for visibility. Dev-only advisories (e.g. the `vitest` UI server, never started in CI) are excluded from the blocking gate so it stays meaningful.
-- See `skills/base-mcp/references/sectorone-safety.md`
+- See `skills/sectorone-dlmm/references/safety.md`
 
 ## Development
 

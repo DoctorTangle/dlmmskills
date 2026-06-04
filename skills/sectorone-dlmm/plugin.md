@@ -5,22 +5,19 @@ description: "Skill plugin reference for reading SectorOne DLMM pools and buildi
 
 # SectorOne Plugin
 
-> [!NOTE]
-> **Canonical copy:** [skills/sectorone-dlmm/plugin.md](../../sectorone-dlmm/plugin.md). Install the skill with `npx skills add DoctorTangle/dlmmskills --skill sectorone-dlmm`.
-
 > [!IMPORTANT]
-> Complete the short Base MCP onboarding flow defined in [`../../sectorone-dlmm/SKILL.md`](../../sectorone-dlmm/SKILL.md) (or legacy [`../SKILL.md`](../SKILL.md)) before calling any SectorOne flow.
+> Complete the Base MCP onboarding flow in [SKILL.md](SKILL.md) before calling any SectorOne flow.
 
 > [!WARNING]
 > This plugin builds unsigned SectorOne calldata with a local TypeScript CLI, then submits unsigned calls through Base MCP `send_calls`.
 > It only works in environments with shell/terminal access such as Cursor, Claude Code, Codex, or similar CLI-enabled environments.
 > It does not work on chat-only surfaces that cannot run commands.
 
-SectorOne is a Liquidity Book (DLMM) DEX on **Base mainnet only**. This plugin uses `@sectorone/sdk-v2` through a local CLI in this repository. The CLI never signs and never broadcasts. Base MCP handles wallet onboarding and user approval in Base Account.
+SectorOne is a Liquidity Book (DLMM) DEX on **Base mainnet only**. This plugin uses `@sectorone/sdk-v2` through a local CLI in the [dlmmskills](https://github.com/DoctorTangle/dlmmskills) repository. The CLI never signs and never broadcasts. Base MCP handles wallet onboarding and user approval in Base Account.
 
 **Chain:** Base mainnet (`chainId` `8453`, Base MCP chain string `"base"`).
 
-See also: [sectorone-safety.md](../references/sectorone-safety.md), [sectorone-addresses.md](../references/sectorone-addresses.md), [sectorone-examples.md](../references/sectorone-examples.md).
+See also: [references/safety.md](references/safety.md), [references/addresses.md](references/addresses.md), [references/examples.md](references/examples.md).
 
 ---
 
@@ -50,18 +47,18 @@ See also: [sectorone-safety.md](../references/sectorone-safety.md), [sectorone-a
 | Default LB version (CLI) | `v2` (Joe 2.0 — most Base liquidity) |
 | Newer pools | `v22` via `--lb-version v22` |
 
-Contract addresses are exported from `@sectorone/sdk-v2` (source of truth). Reference table: [sectorone-addresses.md](../references/sectorone-addresses.md).
+Contract addresses are exported from `@sectorone/sdk-v2` (source of truth). Reference table: [references/addresses.md](references/addresses.md).
 
 ---
 
 ## CLI Runner
 
-From the `sectorone-base-mcp-skill` package root:
+From the **dlmmskills** repository root (after `git clone` and `npm install`):
 
 ```bash
 export BASE_RPC_URL="${BASE_RPC_URL:-https://base-rpc.publicnode.com}"
-pnpm install
-pnpm sectorone --help
+npm install
+npm run sectorone -- --help
 ```
 
 Use a reliable Base RPC for quotes, pool reads, and allowance checks. Public endpoints may rate-limit.
@@ -86,7 +83,7 @@ Tx-building commands emit JSON with `chain: "base"` and a `calls` array:
 If you receive legacy unsigned txs with `from` and decimal `value`, normalize them:
 
 ```bash
-pnpm sectorone normalize-calls --json < unsigned.json
+npm run sectorone -- normalize-calls --json < unsigned.json
 ```
 
 A per-call risk summary (target, selector, value, known/unknown) is printed to stderr; stdout stays pure `{ chain, calls }`. Strict mode is **on by default**: any call that is neither an ERC-20 `approve` nor aimed at a known SectorOne contract (v2/v22 router, Liquidity Helper) is rejected. Pass `--allow-unknown-targets` only to opt out for trusted input (not recommended).
@@ -97,7 +94,7 @@ Then call Base MCP `send_calls` with the normalized payload. Preserve call order
 
 ## Orchestration
 
-1. Complete Base MCP onboarding (`SKILL.md`).
+1. Complete Base MCP onboarding ([SKILL.md](SKILL.md)).
 2. `get_wallets` when a write flow needs `--wallet`.
 3. Set `BASE_RPC_URL`.
 4. Run the SectorOne CLI with `--json` (stdout is JSON only; warnings on stderr).
@@ -112,7 +109,7 @@ If the CLI exits non-zero, do not submit partial output.
 ## Pool Discovery
 
 ```bash
-pnpm sectorone list-pairs \
+npm run sectorone -- list-pairs \
   --token-in 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 \
   --token-out 0x4200000000000000000000000000000000000006 \
   --token-in-decimals 6 \
@@ -128,7 +125,7 @@ Prefer token addresses over symbols on Base.
 ## Read Active Bin and Reserves
 
 ```bash
-pnpm sectorone read-pool \
+npm run sectorone -- read-pool \
   --token-x 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 \
   --token-y 0x4200000000000000000000000000000000000006 \
   --token-x-decimals 6 \
@@ -143,8 +140,8 @@ Or pass `--pair <lbPairAddress>` with `--bin-step`.
 Bin price helpers:
 
 ```bash
-pnpm sectorone read-bin-price --bin-id 8388608 --bin-step 25 --json
-pnpm sectorone read-bin-price --price 1.05 --bin-step 25 --json
+npm run sectorone -- read-bin-price --bin-id 8388608 --bin-step 25 --json
+npm run sectorone -- read-bin-price --price 1.05 --bin-step 25 --json
 ```
 
 ---
@@ -152,7 +149,7 @@ pnpm sectorone read-bin-price --price 1.05 --bin-step 25 --json
 ## Quote Exact Input
 
 ```bash
-pnpm sectorone quote \
+npm run sectorone -- quote \
   --token-in 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 \
   --token-out 0x4200000000000000000000000000000000000006 \
   --token-in-decimals 6 \
@@ -169,7 +166,7 @@ Use `--native-in` / `--native-out` for native ETH legs. Default slippage: **50 b
 ## Build Swap
 
 ```bash
-pnpm sectorone build-swap \
+npm run sectorone -- build-swap \
   --wallet "$BASE_MCP_WALLET" \
   --token-in 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 \
   --token-out 0x4200000000000000000000000000000000000006 \
@@ -188,7 +185,7 @@ Pass the JSON `calls` array to `send_calls`. Approval for ERC-20 `tokenIn` is in
 ## Build Add Liquidity
 
 ```bash
-pnpm sectorone build-add-liquidity \
+npm run sectorone -- build-add-liquidity \
   --wallet "$BASE_MCP_WALLET" \
   --token-x 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 \
   --token-y 0x4200000000000000000000000000000000000006 \
@@ -210,7 +207,7 @@ MVP distribution: `SPOT`. Approvals for ERC-20 legs precede the router call.
 ## Read LP Exposure
 
 ```bash
-pnpm sectorone read-position \
+npm run sectorone -- read-position \
   --wallet "$BASE_MCP_WALLET" \
   --pair 0xLbPairAddress \
   --bin-ids 8376297,8376298,8376299 \

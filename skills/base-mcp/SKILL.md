@@ -5,6 +5,9 @@ description: "Base MCP onboarding flow and plugin index for building unsigned Se
 
 # Base MCP — SectorOne DLMM
 
+> [!NOTE]
+> **Canonical skill:** [skills/sectorone-dlmm/SKILL.md](../sectorone-dlmm/SKILL.md). Install with `npx skills add DoctorTangle/dlmmskills --skill sectorone-dlmm`. This `skills/base-mcp/` tree is a legacy layout kept for compatibility; new installs should use `sectorone-dlmm`.
+
 This is the Base MCP entry point for the SectorOne DLMM plugin. Complete the onboarding flow below before calling any SectorOne flow.
 
 > [!WARNING]
@@ -63,10 +66,10 @@ npm run sectorone -- normalize-calls --json --input unsigned.json
 
 ## Plugins
 
-- [plugins/sectorone.md](plugins/sectorone.md) — SectorOne DLMM commands (discovery, quote, build-swap, add-liquidity, positions).
+- [plugins/sectorone.md](plugins/sectorone.md) — legacy copy; prefer [../sectorone-dlmm/plugin.md](../sectorone-dlmm/plugin.md)
 
 ## References
 
-- [references/sectorone-safety.md](references/sectorone-safety.md)
-- [references/sectorone-addresses.md](references/sectorone-addresses.md)
-- [references/sectorone-examples.md](references/sectorone-examples.md)
+- [../sectorone-dlmm/references/safety.md](../sectorone-dlmm/references/safety.md)
+- [../sectorone-dlmm/references/addresses.md](../sectorone-dlmm/references/addresses.md)
+- [../sectorone-dlmm/references/examples.md](../sectorone-dlmm/references/examples.md)
