@@ -80,13 +80,27 @@ npm run sectorone -- read-pool \
 
 ```bash
 npm run sectorone -- build-create-pool \
+  --token-x 0x4200000000000000000000000000000000000006 \
+  --token-y 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 \
+  --token-x-decimals 18 \
+  --token-y-decimals 6 \
+  --bin-step 25 \
+  --price-sorted-y-per-sorted-x 3000 \
+  --lb-version v2 \
+  --confirm-create \
+  --json
+```
+
+Or USDC-first CLI order (~3000 USDC per 1 WETH as Y per X = WETH/USDC):
+
+```bash
+npm run sectorone -- build-create-pool \
   --token-x 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 \
   --token-y 0x4200000000000000000000000000000000000006 \
   --token-x-decimals 6 \
   --token-y-decimals 18 \
   --bin-step 25 \
-  --price 3000 \
-  --lb-version v2 \
+  --price-token-y-per-token-x 0.000333 \
   --confirm-create \
   --json
 ```

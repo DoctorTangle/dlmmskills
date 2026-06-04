@@ -42,17 +42,53 @@ describe('build-create-pool CLI', () => {
     expect(combined).toContain('build-create-pool')
   })
 
+  it('documents price flags on subcommand help', () => {
+    const { status, combined } = runSectorone('build-create-pool --help')
+    expect(status).toBe(0)
+    expect(combined).toContain('price-token-y-per-token-x')
+    expect(combined).toContain('price-sorted-y-per-sorted-x')
+  })
+
   it('requires --confirm-create', () => {
     const { status, combined } = runSectorone(BASE_ARGS)
     expect(status).not.toBe(0)
     expect(combined).toMatch(/CONFIRM_CREATE_REQUIRED/)
   })
 
-  it('rejects --active-id and --price together', () => {
+  it('rejects legacy --price flag', () => {
     const { status, combined } = runSectorone(
-      `${BASE_ARGS} --confirm-create --active-id 8388608 --price 3000`
+      `${BASE_ARGS} --confirm-create --price 3000`
     )
     expect(status).not.toBe(0)
-    expect(combined).toMatch(/ACTIVE_ID_OR_PRICE/)
+  })
+
+  it('rejects --price-sorted when token-x is not token0 (USDC before WETH)', () => {
+    const args = [
+      'build-create-pool',
+      '--token-x',
+      '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+      '--token-y',
+      '0x4200000000000000000000000000000000000006',
+      '--token-x-decimals',
+      '6',
+      '--token-y-decimals',
+      '18',
+      '--bin-step',
+      '25',
+      '--price-sorted-y-per-sorted-x',
+      '3000',
+      '--confirm-create'
+    ].join(' ')
+    const { status, combined } = runSectorone(args)
+    expect(status).not.toBe(0)
+    expect(combined).toMatch(/PRICE_REQUIRES_SORTED_INPUT_ORDER/)
+  })
+
+  it('rejects two price modes together', () => {
+    const { status, combined } = runSectorone(
+      `${BASE_ARGS} --confirm-create --price-token-y-per-token-x 1 --price-sorted-y-per-sorted-x 1`
+    )
+    expect(status).not.toBe(0)
+    expect(combined).toMatch(/CREATE_PRICE_MODE_REQUIRED/)
   })
 })

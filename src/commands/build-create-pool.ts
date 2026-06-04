@@ -1,12 +1,11 @@
-import { Bin } from '@sectorone/sdk-v2'
 import { getAddress } from 'viem'
 import type { Command } from 'commander'
 import { createBasePublicClient } from '../lib/client.js'
+import { resolveCreatePoolActiveId } from '../lib/create-pool-price.js'
 import { buildCreatePoolCalls } from '../lib/dlmm.js'
 import { makeToken } from '../lib/tokens.js'
 import {
   assertBaseChainOnly,
-  DEFAULT_ACTIVE_BIN_ID,
   parseActiveBinId,
   parseBinStep,
   parseDecimals,
@@ -27,11 +26,15 @@ export function registerBuildCreatePool(program: Command): void {
     .requiredOption('--token-y-decimals <n>', 'Token Y decimals')
     .requiredOption('--bin-step <n>', 'Pair bin step (must have a factory preset)')
     .option('--lb-version <v>', 'LB version: v2 (Joe 2.0) or v22', 'v2')
+    .option('--active-id <n>', 'Initial active bin id (uint24; on-chain sorted token order)')
     .option(
-      '--active-id <n>',
-      `Initial active bin id (default ${DEFAULT_ACTIVE_BIN_ID} if --price omitted)`
+      '--price-token-y-per-token-x <n>',
+      'Price as your CLI --token-y per --token-x (converted to sorted order for bin math)'
     )
-    .option('--price <n>', 'Initial price (token Y per token X); converts to active bin id')
+    .option(
+      '--price-sorted-y-per-sorted-x <n>',
+      'Price as on-chain token1 per token0; requires --token-x to be the lower-address token'
+    )
     .option(
       '--confirm-create',
       'Required: explicit confirmation that the user wants to deploy a new pool'
@@ -47,33 +50,8 @@ export function registerBuildCreatePool(program: Command): void {
         )
       }
 
-      const hasActiveId = opts.activeId !== undefined
-      const hasPrice = opts.price !== undefined
-      if (hasActiveId && hasPrice) {
-        throw new SectorOneError(
-          'ACTIVE_ID_OR_PRICE',
-          'Provide only one of --active-id or --price, not both.'
-        )
-      }
-
       const version = parseLbVersion(opts.lbVersion)
       const binStep = parseBinStep(Number(opts.binStep))
-
-      let activeId: number
-      if (hasPrice) {
-        const price = Number(opts.price)
-        if (!Number.isFinite(price) || price <= 0) {
-          throw new SectorOneError(
-            'INVALID_PRICE',
-            '--price must be a positive number (token Y per token X).'
-          )
-        }
-        activeId = Bin.getIdFromPrice(price, binStep)
-      } else if (hasActiveId) {
-        activeId = parseActiveBinId(Number(opts.activeId))
-      } else {
-        activeId = DEFAULT_ACTIVE_BIN_ID
-      }
 
       const tokenX = makeToken({
         address: opts.tokenX,
@@ -84,6 +62,25 @@ export function registerBuildCreatePool(program: Command): void {
         decimals: parseDecimals(Number(opts.tokenYDecimals), 'token-y-decimals')
       })
 
+      const resolved = resolveCreatePoolActiveId({
+        tokenX,
+        tokenY,
+        binStep,
+        activeId:
+          opts.activeId !== undefined
+            ? parseActiveBinId(Number(opts.activeId))
+            : undefined,
+        priceInputYPerInputX:
+          opts.priceTokenYPerTokenX !== undefined
+            ? Number(opts.priceTokenYPerTokenX)
+            : undefined,
+        priceSortedYPerSortedX:
+          opts.priceSortedYPerSortedX !== undefined
+            ? Number(opts.priceSortedYPerSortedX)
+            : undefined
+      })
+
+      // Price/order validation runs before RPC so agents get deterministic errors.
       const client = createBasePublicClient()
       const {
         calls,
@@ -98,7 +95,7 @@ export function registerBuildCreatePool(program: Command): void {
         tokenX,
         tokenY,
         binStep,
-        activeId
+        activeId: resolved.activeId
       })
 
       const payload = {
@@ -108,11 +105,17 @@ export function registerBuildCreatePool(program: Command): void {
           chainId: 8453,
           action: 'createLBPair',
           lbVersion: version,
-          tokenX: getAddress(sortedX),
-          tokenY: getAddress(sortedY),
+          inputTokenX: resolved.inputTokenX,
+          inputTokenY: resolved.inputTokenY,
+          sortedTokenX: getAddress(sortedX),
+          sortedTokenY: getAddress(sortedY),
+          inputOrderWasSorted: resolved.inputOrderWasSorted,
+          priceMode: resolved.priceMode,
+          priceSemantic: resolved.priceSemantic,
+          priceUsedForBinMath: resolved.priceUsedForBinMath,
+          impliedSortedYPerSortedX: resolved.impliedSortedYPerSortedX,
           binStep: binStepUsed,
           activeId: activeIdUsed,
-          initialPrice: Bin.getPriceFromId(activeIdUsed, binStepUsed),
           router: getAddress(router)
         },
         calls
@@ -125,8 +128,10 @@ export function registerBuildCreatePool(program: Command): void {
 
       writeHuman([
         `Built ${calls.length} call(s) to create a new LB pair.`,
-        `Tokens (sorted): ${sortedX} / ${sortedY}`,
-        `binStep=${binStepUsed} activeId=${activeIdUsed} (~price ${payload.summary.initialPrice})`,
+        `Input tokens: ${resolved.inputTokenX} / ${resolved.inputTokenY}`,
+        `Sorted (router): ${sortedX} / ${sortedY}`,
+        `inputOrderWasSorted=${resolved.inputOrderWasSorted} priceMode=${resolved.priceMode}`,
+        `activeId=${activeIdUsed} impliedSortedYPerSortedX≈${resolved.impliedSortedYPerSortedX}`,
         `Router: ${router}`
       ])
     })

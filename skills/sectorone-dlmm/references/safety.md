@@ -58,7 +58,7 @@ Default CLI slippage: **50 bps** (0.5%).
 - DLMM liquidity is **bin-local** — wrong bin range or wide SPOT distribution can leave capital idle or exposed.
 - Review `activeId`, `binStep`, and distribution before `build-add-liquidity`.
 - Before `build-remove-liquidity`, run `read-position` and confirm bin IDs; use `--remove-all` only after explicit user confirmation.
-- Before `build-create-pool`, run `list-pairs`; require `--confirm-create` and verify `--price` / `--active-id` with the user — a wrong initial bin is costly to fix.
+- Before `build-create-pool`, run `list-pairs`; require `--confirm-create`. Use `--price-sorted-y-per-sorted-x` or `--price-token-y-per-token-x` (never bare `--price`). Read JSON `summary.inputOrderWasSorted` and `impliedSortedYPerSortedX` with the user — a wrong initial `activeId` is costly to fix.
 - Price impact on swaps can be large in thin bins.
 
 ## MEV / Execution

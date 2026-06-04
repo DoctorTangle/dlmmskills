@@ -188,28 +188,37 @@ Deploy a **new** LB pair when `list-pairs` does not already show your token pair
 
 **Requires** `--confirm-create` after explicit user approval — deploying the wrong `activeId` / price anchor is hard to undo.
 
-**Initial price anchor** — provide at most one of:
+**Initial price anchor** — provide **at most one** of:
 
 | Flag | Meaning |
 | --- | --- |
-| `--price <n>` | Token Y per token X; converted to `activeId` via DLMM math |
-| `--active-id <n>` | Explicit uint24 bin id |
-| *(neither)* | Defaults to `8388608` (neutral LB anchor) |
+| `--price-token-y-per-token-x <n>` | Your CLI `--token-y` per `--token-x` (converted to sorted token1/token0 for bin math) |
+| `--price-sorted-y-per-sorted-x <n>` | On-chain **token1 per token0**; **requires** `--token-x` = lower-address token (token0) |
+| `--active-id <n>` | Explicit uint24 bin id (sorted pair semantics) |
+| *(none)* | Defaults to `8388608` (neutral LB anchor) |
 
-Preflight checks: pair must not exist, `bin-step` must have an open factory preset (`creationUnlocked` on v2.0).
+**Do not use bare `--price`** — it was removed as ambiguous.
+
+On Base, **WETH sorts before USDC** (token0=WETH, token1=USDC). “~3000 USDC per 1 WETH” ⇒ **sorted** Y/X = `3000` (USDC per WETH). Use sorted flags only when `--token-x` is WETH:
 
 ```bash
 npm run sectorone -- build-create-pool \
-  --token-x 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 \
-  --token-y 0x4200000000000000000000000000000000000006 \
-  --token-x-decimals 6 \
-  --token-y-decimals 18 \
+  --token-x 0x4200000000000000000000000000000000000006 \
+  --token-y 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 \
+  --token-x-decimals 18 \
+  --token-y-decimals 6 \
   --bin-step 25 \
-  --price 3000 \
+  --price-sorted-y-per-sorted-x 3000 \
   --lb-version v2 \
   --confirm-create \
   --json
 ```
+
+If you prefer `--token-x` USDC first, use `--price-token-y-per-token-x 0.000333` (WETH per USDC) instead.
+
+JSON `summary` includes `inputTokenX`, `sortedTokenX`, `inputOrderWasSorted`, `priceSemantic`, and `impliedSortedYPerSortedX` — review these before `send_calls`.
+
+Preflight checks: pair must not exist, `bin-step` must have an open factory preset (`creationUnlocked` on v2.0).
 
 After the tx confirms, use `list-pairs` / `read-pool`, then `build-add-liquidity` for the first LP deposit.
 
@@ -331,6 +340,8 @@ Always pass decimals explicitly. Do not guess symbols on Base.
 | `No SectorOne DLMM route found` | Run `list-pairs`; verify liquidity and bin steps. |
 | `PAIR_ALREADY_EXISTS` | Pool exists; use `build-add-liquidity` instead of `build-create-pool`. |
 | `CONFIRM_CREATE_REQUIRED` | Pass `--confirm-create` only after user approval. |
+| `PRICE_REQUIRES_SORTED_INPUT_ORDER` | Reorder tokens so `--token-x` is token0, or use `--price-token-y-per-token-x`. |
+| `CREATE_PRICE_MODE_REQUIRED` | Use only one price/active-id mode. |
 | `BIN_STEP_NO_PRESET` / `CREATION_LOCKED` | Pick another `--bin-step` or `--lb-version v22`. |
 | `LB v2.1 is not deployed` | Use `--version v22`. |
 | Rate limits / timeouts | Use a dedicated Base RPC. |
