@@ -1,6 +1,6 @@
 ---
 name: sectorone-dlmm
-description: Read SectorOne (Liquidity Book / DLMM) pools on Base and build unsigned swap and liquidity calldata for Base MCP send_calls. Use when the user wants to discover SectorOne / Joe 2.0 LB pools on Base, quote a swap, prepare a swap or add-liquidity transaction, read an active bin, or inspect LP exposure. Base mainnet only (chainId 8453). Requires shell access.
+description: Read SectorOne (Liquidity Book / DLMM) pools on Base and build unsigned swap and liquidity calldata for Base MCP send_calls. Use for SectorOne / Joe 2.0 LB on Base — discover pools, quote swaps, add or remove liquidity, inspect LP per bin, or rebalance positions (read-position → build-remove-liquidity → optional swap → build-add-liquidity). Base mainnet only (chainId 8453). Requires shell access.
 ---
 
 # SectorOne DLMM Skill
@@ -57,7 +57,11 @@ Connect [Base MCP](https://docs.base.org/ai-agents/quickstart) (`mcp.base.org`) 
 - "Quote 100 USDC to WETH on SectorOne"
 - "Prepare / build a SectorOne swap"
 - "Add liquidity to a SectorOne DLMM pool"
+- "Remove / close my SectorOne LP" (full or partial — use `build-remove-liquidity`)
 - "Show the active bin" / "Show my LP exposure"
+- "Rebalance my DLMM position" (typical flow: `read-position` → `build-remove-liquidity` → optional `build-swap` → `build-add-liquidity`; confirm each step with the user before `send_calls`)
+
+For remove flows, read [plugin.md](plugin.md) § Build Remove Liquidity. Run `read-position` first to get bin IDs; require explicit confirmation before `--remove-all`.
 
 ---
 
