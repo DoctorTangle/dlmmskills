@@ -6,7 +6,7 @@ description: "Skill plugin reference for reading SectorOne DLMM pools and buildi
 # SectorOne Plugin
 
 > [!IMPORTANT]
-> Complete the short Base MCP onboarding flow defined in `SKILL.md` before calling any SectorOne flow.
+> Complete the short Base MCP onboarding flow defined in [`../SKILL.md`](../SKILL.md) before calling any SectorOne flow.
 
 > [!WARNING]
 > This plugin builds unsigned SectorOne calldata with a local TypeScript CLI, then submits unsigned calls through Base MCP `send_calls`.

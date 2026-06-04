@@ -72,7 +72,11 @@ Use `--json` on any command that returns structured data (stdout = JSON only).
 
 via `send_calls`.
 
-See `skills/base-mcp/plugins/sectorone.md` for the full agent playbook.
+Skill entry points for agents:
+
+- `SKILL.md` (repo root) — auto-discovery for Cursor/Claude/Codex
+- `skills/base-mcp/SKILL.md` — Base MCP onboarding flow
+- `skills/base-mcp/plugins/sectorone.md` — full command playbook
 
 ## Safety
 
