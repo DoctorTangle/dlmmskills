@@ -1,5 +1,5 @@
 import { Percent, Token, TokenAmount } from '@sectorone/sdk-core'
-import { JSBI } from '@sectorone/sdk-v2'
+import JSBI from 'jsbi'
 import { parseUnits } from 'viem'
 import { SectorOneError } from './errors.js'
 
@@ -24,7 +24,7 @@ export function makeTokenAmount(
 }
 
 export function bpsToPercent(bps: number): Percent {
-  return new Percent(JSBI.BigInt(Math.trunc(bps)), JSBI.BigInt(10_000))
+  return new Percent(JSBI.BigInt(String(Math.trunc(bps))), JSBI.BigInt('10000'))
 }
 
 export function formatRawAmount(raw: bigint, decimals: number): string {

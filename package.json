@@ -18,6 +18,7 @@
     "@sectorone/sdk-v2": "file:./_sectorone-ref/packages/v2",
     "commander": "^12.0.0",
     "dotenv": "^16.0.0",
+    "jsbi": "^4.3.0",
     "viem": "^2.5.0",
     "zod": "^3.23.0"
   },
