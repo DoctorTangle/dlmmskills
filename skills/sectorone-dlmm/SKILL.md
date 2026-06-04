@@ -1,6 +1,6 @@
 ---
 name: sectorone-dlmm
-description: Read SectorOne (Liquidity Book / DLMM) pools on Base and build unsigned swap and liquidity calldata for Base MCP send_calls. Use for SectorOne / Joe 2.0 LB on Base — discover pools, quote swaps, add or remove liquidity, inspect LP per bin, or rebalance positions (read-position → build-remove-liquidity → optional swap → build-add-liquidity). Base mainnet only (chainId 8453). Requires shell access.
+description: Read SectorOne (Liquidity Book / DLMM) pools on Base and build unsigned swap and liquidity calldata for Base MCP send_calls. Use for SectorOne / Joe 2.0 LB on Base — discover pools, deploy new pairs (build-create-pool), quote swaps, add or remove liquidity, inspect LP per bin, or rebalance positions. Base mainnet only (chainId 8453). Requires shell access.
 ---
 
 # SectorOne DLMM Skill
@@ -56,6 +56,7 @@ Connect [Base MCP](https://docs.base.org/ai-agents/quickstart) (`mcp.base.org`) 
 - "Find SectorOne / Joe 2.0 WETH/USDC pools on Base"
 - "Quote 100 USDC to WETH on SectorOne"
 - "Prepare / build a SectorOne swap"
+- "Create a new SectorOne DLMM pool" (`build-create-pool` + `--confirm-create`)
 - "Add liquidity to a SectorOne DLMM pool"
 - "Remove / close my SectorOne LP" (full or partial — use `build-remove-liquidity`)
 - "Show the active bin" / "Show my LP exposure"
@@ -109,6 +110,7 @@ Read **plugin.md** before running a flow. Use `--json` on structured commands (s
 | `quote` | Exact-input swap quote |
 | `check-approval` | ERC-20 approval calldata if needed |
 | `build-swap` | Approval + swap calls for `send_calls` |
+| `build-create-pool` | Deploy new LB pair (`createLBPair`; requires `--confirm-create`) |
 | `build-add-liquidity` | Approvals + add-liquidity calls |
 | `build-remove-liquidity` | Remove LP from specific bins (`send_calls`) |
 | `read-position` | LP amounts per bin |

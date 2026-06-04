@@ -74,6 +74,23 @@ npm run sectorone -- read-pool \
   --json
 ```
 
+### Create a new LB pair
+
+> Deploy a new USDC/WETH 25 bps pool (only if `list-pairs` shows it does not exist yet).
+
+```bash
+npm run sectorone -- build-create-pool \
+  --token-x 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 \
+  --token-y 0x4200000000000000000000000000000000000006 \
+  --token-x-decimals 6 \
+  --token-y-decimals 18 \
+  --bin-step 25 \
+  --price 3000 \
+  --lb-version v2 \
+  --confirm-create \
+  --json
+```
+
 ### Add liquidity calldata
 
 > Build add-liquidity calldata for WETH/USDC around the active bin.

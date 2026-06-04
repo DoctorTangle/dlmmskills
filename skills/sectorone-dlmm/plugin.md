@@ -182,6 +182,39 @@ Pass the JSON `calls` array to `send_calls`. Approval for ERC-20 `tokenIn` is in
 
 ---
 
+## Build Create Pool
+
+Deploy a **new** LB pair when `list-pairs` does not already show your token pair + `binStep`. Uses the router `createLBPair` (one call, no approvals). Tokens are sorted on-chain (token0/token1).
+
+**Requires** `--confirm-create` after explicit user approval — deploying the wrong `activeId` / price anchor is hard to undo.
+
+**Initial price anchor** — provide at most one of:
+
+| Flag | Meaning |
+| --- | --- |
+| `--price <n>` | Token Y per token X; converted to `activeId` via DLMM math |
+| `--active-id <n>` | Explicit uint24 bin id |
+| *(neither)* | Defaults to `8388608` (neutral LB anchor) |
+
+Preflight checks: pair must not exist, `bin-step` must have an open factory preset (`creationUnlocked` on v2.0).
+
+```bash
+npm run sectorone -- build-create-pool \
+  --token-x 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 \
+  --token-y 0x4200000000000000000000000000000000000006 \
+  --token-x-decimals 6 \
+  --token-y-decimals 18 \
+  --bin-step 25 \
+  --price 3000 \
+  --lb-version v2 \
+  --confirm-create \
+  --json
+```
+
+After the tx confirms, use `list-pairs` / `read-pool`, then `build-add-liquidity` for the first LP deposit.
+
+---
+
 ## Build Add Liquidity
 
 ```bash
@@ -296,6 +329,9 @@ Always pass decimals explicitly. Do not guess symbols on Base.
 | --- | --- |
 | `BASE_RPC_URL is required` | Export `BASE_RPC_URL`. |
 | `No SectorOne DLMM route found` | Run `list-pairs`; verify liquidity and bin steps. |
+| `PAIR_ALREADY_EXISTS` | Pool exists; use `build-add-liquidity` instead of `build-create-pool`. |
+| `CONFIRM_CREATE_REQUIRED` | Pass `--confirm-create` only after user approval. |
+| `BIN_STEP_NO_PRESET` / `CREATION_LOCKED` | Pick another `--bin-step` or `--lb-version v22`. |
 | `LB v2.1 is not deployed` | Use `--version v22`. |
 | Rate limits / timeouts | Use a dedicated Base RPC. |
 | JSON parse errors from agent | Use `--json`; capture stdout only. |
@@ -309,5 +345,6 @@ Always pass decimals explicitly. Do not guess symbols on Base.
 - Prepare a SectorOne swap of 100 USDC to WETH for my Base MCP wallet.
 - Show the active bin for the USDC/WETH 25 bps pool.
 - Build add-liquidity calldata for USDC/WETH around the active bin.
+- Create a new USDC/WETH 25 bps SectorOne pool at price 3000 (with confirmation).
 - Remove all my liquidity from these bin IDs on SectorOne.
 - Show my SectorOne LP exposure for these bin IDs.

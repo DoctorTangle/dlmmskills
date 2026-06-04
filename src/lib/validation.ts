@@ -154,6 +154,21 @@ export function parseLiquidityAmountsList(
   })
 }
 
+/** LB neutral price anchor (2^23); used when no --price is given for pool creation. */
+export const DEFAULT_ACTIVE_BIN_ID = 8388608
+
+const MAX_ACTIVE_BIN_ID = 16_777_215 // uint24
+
+export function parseActiveBinId(value: number): number {
+  if (!Number.isInteger(value) || value < 0 || value > MAX_ACTIVE_BIN_ID) {
+    throw new SectorOneError(
+      'INVALID_ACTIVE_ID',
+      `active-id must be an integer between 0 and ${MAX_ACTIVE_BIN_ID} (uint24).`
+    )
+  }
+  return value
+}
+
 export function parseBinIds(value: string): number[] {
   const ids = String(value)
     .split(',')

@@ -71,6 +71,7 @@ npm install
 | `quote` | Exact-input swap quote |
 | `check-approval` | ERC-20 approval calldata if needed |
 | `build-swap` | Approval + swap calls for `send_calls` |
+| `build-create-pool` | Deploy new LB pair (`createLBPair` on router) |
 | `build-add-liquidity` | Approvals + add liquidity calls |
 | `build-remove-liquidity` | Remove LP from specific bins |
 | `read-position` | LP amounts per bin via LiquidityHelper |

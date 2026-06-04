@@ -1,6 +1,10 @@
 import { ChainId, Token, WNATIVE } from '@sectorone/sdk-core'
 import {
   Bin,
+  LBFactoryABI,
+  LBFactoryV22ABI,
+  LB_FACTORY_ADDRESS,
+  LB_FACTORY_V22_ADDRESS,
   LBPairABI,
   LBPairV21ABI,
   LBRouterV22ABI,
@@ -71,6 +75,21 @@ export function getRouterAddress(version: LbVersion): Address {
 
 export function getRouterAbi(version: LbVersion) {
   return version === 'v22' ? LBRouterV22ABI : LBRouterABI
+}
+
+export function getFactoryAddress(version: LbVersion): Address {
+  if (version === 'v22') {
+    const addr = LB_FACTORY_V22_ADDRESS[CHAIN]
+    if (!addr || addr === zeroAddress) {
+      throw new SectorOneError('NO_FACTORY', 'LB Factory v2.2 is not configured for Base.')
+    }
+    return addr
+  }
+  return LB_FACTORY_ADDRESS[CHAIN]
+}
+
+export function getFactoryAbi(version: LbVersion) {
+  return version === 'v22' ? LBFactoryV22ABI : LBFactoryABI
 }
 
 function getLbPairAbi(version: LbVersion) {
@@ -678,6 +697,135 @@ export async function readPositionAmounts(params: {
   }
 
   return result
+}
+
+function isZeroPairAddress(address: string): boolean {
+  return getAddress(address) === zeroAddress
+}
+
+export async function assertBinStepHasPreset(params: {
+  client: BasePublicClient
+  version: LbVersion
+  binStep: number
+}): Promise<void> {
+  const factory = getFactoryAddress(params.version)
+  const abi = getFactoryAbi(params.version)
+
+  if (params.version === 'v22') {
+    const preset = (await params.client.readContract({
+      address: factory,
+      abi,
+      functionName: 'getPreset',
+      args: [BigInt(params.binStep)]
+    })) as readonly unknown[]
+
+    const baseFactor = preset[0] as bigint
+    const isOpen = preset[6] as boolean
+    if (baseFactor === 0n) {
+      throw new SectorOneError(
+        'BIN_STEP_NO_PRESET',
+        `bin-step ${params.binStep} has no factory preset on LB v2.2. Run list-pairs or check allowed bin steps.`
+      )
+    }
+    if (!isOpen) {
+      throw new SectorOneError(
+        'BIN_STEP_CLOSED',
+        `bin-step ${params.binStep} preset is not open for new pools on LB v2.2.`
+      )
+    }
+    return
+  }
+
+  const preset = (await params.client.readContract({
+    address: factory,
+    abi,
+    functionName: 'getPreset',
+    args: [BigInt(params.binStep)]
+  })) as readonly bigint[]
+
+  if (preset[0] === 0n) {
+    throw new SectorOneError(
+      'BIN_STEP_NO_PRESET',
+      `bin-step ${params.binStep} has no factory preset on LB v2.0. Run list-pairs or check allowed bin steps.`
+    )
+  }
+
+  const creationUnlocked = await params.client.readContract({
+    address: factory,
+    abi,
+    functionName: 'creationUnlocked'
+  })
+
+  if (!creationUnlocked) {
+    throw new SectorOneError(
+      'CREATION_LOCKED',
+      'LB v2.0 pair creation is locked on the factory. Try --lb-version v22 or wait until creation is unlocked.'
+    )
+  }
+}
+
+export async function buildCreatePoolCalls(params: {
+  client: BasePublicClient
+  version: LbVersion
+  tokenX: Token
+  tokenY: Token
+  binStep: number
+  activeId: number
+}): Promise<{
+  calls: McpCall[]
+  router: Address
+  tokenX: Address
+  tokenY: Address
+  binStep: number
+  activeId: number
+}> {
+  const pairEntity = new PairV2(params.tokenX, params.tokenY)
+  const sdkClient = asSdkClient(params.client)
+
+  const existing = await pairEntity.fetchLBPair(
+    params.binStep,
+    params.version,
+    sdkClient,
+    CHAIN
+  )
+
+  if (!isZeroPairAddress(existing.LBPair)) {
+    throw new SectorOneError(
+      'PAIR_ALREADY_EXISTS',
+      `LB pair already exists at ${getAddress(existing.LBPair)} for this token pair and bin-step ${params.binStep}. Use build-add-liquidity instead.`
+    )
+  }
+
+  await assertBinStepHasPreset({
+    client: params.client,
+    version: params.version,
+    binStep: params.binStep
+  })
+
+  const tokenXAddr = getAddress(pairEntity.token0.address)
+  const tokenYAddr = getAddress(pairEntity.token1.address)
+  const router = getRouterAddress(params.version)
+  const abi = getRouterAbi(params.version)
+
+  const data = encodeFunctionData({
+    abi,
+    functionName: 'createLBPair',
+    args: [
+      tokenXAddr,
+      tokenYAddr,
+      params.activeId,
+      params.binStep
+    ]
+  })
+
+  return {
+    calls: [toMcpCall(router, data, 0n)],
+    router,
+    tokenX: tokenXAddr,
+    tokenY: tokenYAddr,
+    binStep: params.binStep,
+    activeId: params.activeId
+  }
 }
 
 export function formatQuoteOutput(params: {
