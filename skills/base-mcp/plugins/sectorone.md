@@ -209,7 +209,23 @@ MVP distribution: `SPOT`. Approvals for ERC-20 legs precede the router call.
 
 ## Build Remove Liquidity
 
-See [sectorone-dlmm/plugin.md](../../sectorone-dlmm/plugin.md) — `build-remove-liquidity` with `--remove-all`, `--fraction`, or `--amounts`.
+Close or reduce LP in specific bins. Use `read-position` first. Specify **exactly one** of `--remove-all`, `--fraction <n>`, or `--amounts <list>`.
+
+```bash
+npm run sectorone -- build-remove-liquidity \
+  --wallet "$BASE_MCP_WALLET" \
+  --token-x 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 \
+  --token-y 0x4200000000000000000000000000000000000006 \
+  --token-x-decimals 6 \
+  --token-y-decimals 18 \
+  --bin-step 25 \
+  --bin-ids 8376297,8376298,8376299 \
+  --remove-all \
+  --amount-slippage-bps 50 \
+  --json
+```
+
+Canonical docs: [sectorone-dlmm/plugin.md](../../sectorone-dlmm/plugin.md).
 
 ---
 
