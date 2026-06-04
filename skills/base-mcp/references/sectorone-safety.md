@@ -39,7 +39,7 @@ Default CLI slippage: **50 bps** (0.5%).
 ## normalize-calls
 
 - Converts legacy unsigned txs to the `send_calls` shape. It prints a per-call risk summary (target, selector, value, known/unknown) to stderr.
-- `--strict` rejects any call that is neither an ERC-20 `approve` nor targeted at a known SectorOne contract (v2/v22 router, Liquidity Helper). Use it when normalizing untrusted input.
+- Strict mode is **on by default**: any call that is neither an ERC-20 `approve` nor targeted at a known SectorOne contract (v2/v22 router, Liquidity Helper) is rejected. Pass `--allow-unknown-targets` only to opt out for trusted input (not recommended).
 
 ## Protocol Versions
 

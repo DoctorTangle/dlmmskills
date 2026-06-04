@@ -28,8 +28,17 @@ jobs:
       - name: Test
         run: npm test
 
-      # Non-blocking: file: deps can add noise; surface advisories without
+      # Blocking gate: fail the build on critical vulnerabilities in the
+      # production dependency tree (the actual agent runtime/attack surface).
+      # This is green today. Dev-only advisories (e.g. the vitest UI server,
+      # which CI never starts since it runs `vitest run`) are intentionally
+      # excluded here so the gate stays meaningful instead of permanently red.
+      - name: Audit (production deps, blocking)
+        run: npm audit --omit=dev --audit-level=critical
+
+      # Non-blocking visibility: surface the full advisory set (incl. dev deps
+      # and high-severity findings inside the pinned vendored SDK) without
       # failing the build.
-      - name: Audit
+      - name: Audit (full, non-blocking)
         run: npm audit --audit-level=high
         continue-on-error: true

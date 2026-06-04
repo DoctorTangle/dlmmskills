@@ -11,8 +11,8 @@ export function registerNormalizeCalls(program: Command): void {
     .description('Normalize unsigned txs to Base MCP send_calls format')
     .option('--input <path>', 'JSON file path (default: stdin)')
     .option(
-      '--strict',
-      'Reject calls not targeting a known SectorOne contract or ERC-20 approve'
+      '--allow-unknown-targets',
+      'Opt out of strict mode and allow calls that do not target a known SectorOne contract or ERC-20 approve (NOT recommended)'
     )
     .option('--json', 'JSON output to stdout')
     .action(async (opts) => {
@@ -38,7 +38,7 @@ export function registerNormalizeCalls(program: Command): void {
       }
 
       const payload = normalizeCalls(parsed as RawUnsignedCall[], {
-        strict: Boolean(opts.strict)
+        strict: !opts.allowUnknownTargets
       })
 
       // Risk summary always goes to stderr so stdout stays pure send_calls JSON.

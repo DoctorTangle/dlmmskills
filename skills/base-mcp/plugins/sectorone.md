@@ -86,7 +86,7 @@ If you receive legacy unsigned txs with `from` and decimal `value`, normalize th
 pnpm sectorone normalize-calls --json < unsigned.json
 ```
 
-A per-call risk summary (target, selector, value, known/unknown) is printed to stderr; stdout stays pure `{ chain, calls }`. Add `--strict` to reject any call that is neither an ERC-20 `approve` nor aimed at a known SectorOne contract (v2/v22 router, Liquidity Helper) — recommended for untrusted input.
+A per-call risk summary (target, selector, value, known/unknown) is printed to stderr; stdout stays pure `{ chain, calls }`. Strict mode is **on by default**: any call that is neither an ERC-20 `approve` nor aimed at a known SectorOne contract (v2/v22 router, Liquidity Helper) is rejected. Pass `--allow-unknown-targets` only to opt out for trusted input (not recommended).
 
 Then call Base MCP `send_calls` with the normalized payload. Preserve call order (approvals before router).
 

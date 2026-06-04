@@ -85,8 +85,9 @@ Skill entry points for agents:
 - TTL default 1200s, hard max 3600s
 - `--native-*` flags require the token to be WETH (`0x4200...0006`)
 - `--infinite-approval` needs a second `--confirm-infinite-approval`; exact approval is the default
-- `normalize-calls` prints a risk summary (stderr) and supports `--strict` to reject non-SectorOne / non-approve calls
+- `normalize-calls` prints a risk summary (stderr) and rejects non-SectorOne / non-approve calls by default (strict mode); use `--allow-unknown-targets` to opt out
 - Default **`--lb-version v2`** (Joe 2.0 / LB v2.0) — most Base liquidity; use `v22` for newer pools; **v2.1** not deployed on Base
+- CI fails on **critical** vulnerabilities in the **production** dependency tree (`npm audit --omit=dev --audit-level=critical`); a full `npm audit --audit-level=high` runs non-blocking for visibility. Dev-only advisories (e.g. the `vitest` UI server, never started in CI) are excluded from the blocking gate so it stays meaningful.
 - See `skills/base-mcp/references/sectorone-safety.md`
 
 ## Development
