@@ -106,6 +106,7 @@ Read **plugin.md** before running a flow. Use `--json` on structured commands (s
 | `check-approval` | ERC-20 approval calldata if needed |
 | `build-swap` | Approval + swap calls for `send_calls` |
 | `build-add-liquidity` | Approvals + add-liquidity calls |
+| `build-remove-liquidity` | Remove LP from specific bins (`send_calls`) |
 | `read-position` | LP amounts per bin |
 | `normalize-calls` | Legacy unsigned tx → Base MCP shape (strict by default) |
 

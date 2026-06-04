@@ -72,6 +72,7 @@ npm install
 | `check-approval` | ERC-20 approval calldata if needed |
 | `build-swap` | Approval + swap calls for `send_calls` |
 | `build-add-liquidity` | Approvals + add liquidity calls |
+| `build-remove-liquidity` | Remove LP from specific bins |
 | `read-position` | LP amounts per bin via LiquidityHelper |
 | `normalize-calls` | Legacy unsigned tx → Base MCP shape |
 

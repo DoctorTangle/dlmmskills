@@ -92,6 +92,25 @@ npm run sectorone -- build-add-liquidity \
   --json
 ```
 
+### Remove all liquidity from bins
+
+> Remove all my SectorOne LP from these bin IDs.
+
+```bash
+npm run sectorone -- build-remove-liquidity \
+  --wallet 0xYourBaseMcpWallet \
+  --token-x 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 \
+  --token-y 0x4200000000000000000000000000000000000006 \
+  --token-x-decimals 6 \
+  --token-y-decimals 18 \
+  --bin-step 25 \
+  --bin-ids 8376297,8376298,8376299 \
+  --remove-all \
+  --json
+```
+
+Use `read-position` first to pick `--bin-ids`. For partial exits use `--fraction 0.5` or explicit `--amounts`.
+
 ### LP exposure by bin IDs
 
 > Show my SectorOne LP exposure for these bin IDs.

@@ -8,6 +8,7 @@ import { registerQuote } from '../commands/quote.js'
 import { registerCheckApproval } from '../commands/check-approval.js'
 import { registerBuildSwap } from '../commands/build-swap.js'
 import { registerBuildAddLiquidity } from '../commands/build-add-liquidity.js'
+import { registerBuildRemoveLiquidity } from '../commands/build-remove-liquidity.js'
 import { registerReadPosition } from '../commands/read-position.js'
 import { registerNormalizeCalls } from '../commands/normalize-calls.js'
 import { isSectorOneError } from '../lib/errors.js'
@@ -27,6 +28,7 @@ registerQuote(program)
 registerCheckApproval(program)
 registerBuildSwap(program)
 registerBuildAddLiquidity(program)
+registerBuildRemoveLiquidity(program)
 registerReadPosition(program)
 registerNormalizeCalls(program)
 

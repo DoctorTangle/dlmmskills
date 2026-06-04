@@ -114,6 +114,46 @@ export function parseMaxHops(value: number): number {
   return value
 }
 
+export function parseFraction(value: number): number {
+  if (!Number.isFinite(value) || value <= 0 || value > 1) {
+    throw new SectorOneError(
+      'INVALID_FRACTION',
+      'fraction must be greater than 0 and at most 1 (e.g. 0.5 for 50%).'
+    )
+  }
+  return value
+}
+
+export function parseLiquidityAmountsList(
+  value: string,
+  expectedLen: number
+): bigint[] {
+  const parts = String(value)
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  if (parts.length !== expectedLen) {
+    throw new SectorOneError(
+      'INVALID_LIQUIDITY_AMOUNTS',
+      `Expected ${expectedLen} liquidity amount(s) (one per bin id), got ${parts.length}.`
+    )
+  }
+  return parts.map((part, index) => {
+    try {
+      const amount = BigInt(part)
+      if (amount <= 0n) {
+        throw new Error('non-positive')
+      }
+      return amount
+    } catch {
+      throw new SectorOneError(
+        'INVALID_LIQUIDITY_AMOUNTS',
+        `Invalid liquidity amount at index ${index}: "${part}". Use base units (integer strings).`
+      )
+    }
+  })
+}
+
 export function parseBinIds(value: string): number[] {
   const ids = String(value)
     .split(',')

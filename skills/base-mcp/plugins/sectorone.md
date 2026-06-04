@@ -207,6 +207,12 @@ MVP distribution: `SPOT`. Approvals for ERC-20 legs precede the router call.
 
 ---
 
+## Build Remove Liquidity
+
+See [sectorone-dlmm/plugin.md](../../sectorone-dlmm/plugin.md) — `build-remove-liquidity` with `--remove-all`, `--fraction`, or `--amounts`.
+
+---
+
 ## Read LP Exposure
 
 ```bash

@@ -4,6 +4,8 @@ import {
   parseAddress,
   parseBinIds,
   parseBinStep,
+  parseFraction,
+  parseLiquidityAmountsList,
   parseLbVersion,
   parseMaxHops,
   parseTtlSeconds,
@@ -51,6 +53,17 @@ describe('validation', () => {
     expect(() => parseMaxHops(0)).toThrow(SectorOneError)
     expect(() => parseMaxHops(5)).toThrow(SectorOneError)
     expect(() => parseMaxHops(2.5)).toThrow(SectorOneError)
+  })
+
+  it('parseFraction accepts (0,1] and rejects otherwise', () => {
+    expect(parseFraction(1)).toBe(1)
+    expect(() => parseFraction(0)).toThrow(SectorOneError)
+    expect(() => parseFraction(1.01)).toThrow(SectorOneError)
+  })
+
+  it('parseLiquidityAmountsList requires exact bin count', () => {
+    expect(parseLiquidityAmountsList('1,2', 2)).toEqual([1n, 2n])
+    expect(() => parseLiquidityAmountsList('0', 1)).toThrow(SectorOneError)
   })
 
   it('parseBinIds parses CSV integers and rejects NaN/negatives', () => {

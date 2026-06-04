@@ -1,6 +1,8 @@
 import { ChainId, Token, WNATIVE } from '@sectorone/sdk-core'
 import {
   Bin,
+  LBPairABI,
+  LBPairV21ABI,
   LBRouterV22ABI,
   LB_ROUTER_V22_ADDRESS,
   LB_ROUTER_ADDRESS,
@@ -69,6 +71,150 @@ export function getRouterAddress(version: LbVersion): Address {
 
 export function getRouterAbi(version: LbVersion) {
   return version === 'v22' ? LBRouterV22ABI : LBRouterABI
+}
+
+function getLbPairAbi(version: LbVersion) {
+  return version === 'v22' ? LBPairV21ABI : LBPairABI
+}
+
+/** Scale per-bin LP balances by a fraction (0 < f <= 1). */
+export function scaleLiquidityBalances(
+  balances: readonly bigint[],
+  fraction: number
+): bigint[] {
+  if (fraction >= 1) {
+    return balances.map((b) => b)
+  }
+  const scale = Math.round(fraction * 1_000_000)
+  if (scale <= 0) {
+    throw new SectorOneError(
+      'INVALID_FRACTION',
+      'fraction is too small to remove any liquidity after scaling.'
+    )
+  }
+  return balances.map((balance) => (balance * BigInt(scale)) / 1_000_000n)
+}
+
+export type ResolvedLbPair = {
+  pairAddress: Address
+  tokenX: Token
+  tokenY: Token
+  binStep: number
+}
+
+export async function resolveLbPair(params: {
+  client: BasePublicClient
+  version: LbVersion
+  pair?: Address
+  tokenX?: Token
+  tokenY?: Token
+  binStep?: number
+}): Promise<ResolvedLbPair> {
+  if (params.pair) {
+    if (params.binStep === undefined) {
+      throw new SectorOneError(
+        'MISSING_BIN_STEP',
+        'Provide --bin-step when using --pair, or omit --pair and pass tokens + bin-step.'
+      )
+    }
+    if (!params.tokenX || !params.tokenY) {
+      throw new SectorOneError(
+        'MISSING_TOKENS',
+        'Provide --token-x and --token-y (with decimals) when using --pair for remove liquidity.'
+      )
+    }
+    return {
+      pairAddress: getAddress(params.pair),
+      tokenX: params.tokenX,
+      tokenY: params.tokenY,
+      binStep: params.binStep
+    }
+  }
+
+  if (!params.tokenX || !params.tokenY || params.binStep === undefined) {
+    throw new SectorOneError(
+      'MISSING_ARGS',
+      'Provide --pair + tokens + --bin-step, or --token-x, --token-y, and --bin-step.'
+    )
+  }
+
+  const sdkClient = asSdkClient(params.client)
+  const pairEntity = new PairV2(params.tokenX, params.tokenY)
+  const lbPair = await pairEntity.fetchLBPair(
+    params.binStep,
+    params.version,
+    sdkClient,
+    CHAIN
+  )
+
+  return {
+    pairAddress: getAddress(lbPair.LBPair),
+    tokenX: params.tokenX,
+    tokenY: params.tokenY,
+    binStep: params.binStep
+  }
+}
+
+export async function fetchUserLiquidityBalances(params: {
+  client: BasePublicClient
+  version: LbVersion
+  pair: Address
+  wallet: Address
+  binIds: number[]
+}): Promise<bigint[]> {
+  const abi = getLbPairAbi(params.version)
+  const accounts = params.binIds.map(() => params.wallet)
+  const ids = params.binIds.map((id) => BigInt(id))
+
+  if (params.binIds.length === 1) {
+    const balance = await params.client.readContract({
+      address: params.pair,
+      abi,
+      functionName: 'balanceOf',
+      args: [params.wallet, ids[0]!]
+    })
+    return [balance]
+  }
+
+  const balances = await params.client.readContract({
+    address: params.pair,
+    abi,
+    functionName: 'balanceOfBatch',
+    args: [accounts, ids]
+  })
+  return [...balances]
+}
+
+async function fetchBinReservesForRemove(params: {
+  client: BasePublicClient
+  version: LbVersion
+  pair: Address
+  binIds: number[]
+}): Promise<{ bins: { reserveX: bigint; reserveY: bigint }[]; totalSupplies: bigint[] }> {
+  const abi = getLbPairAbi(params.version)
+  const bins: { reserveX: bigint; reserveY: bigint }[] = []
+  const totalSupplies: bigint[] = []
+
+  for (const binId of params.binIds) {
+    const [[reserveX, reserveY], totalSupply] = await Promise.all([
+      params.client.readContract({
+        address: params.pair,
+        abi,
+        functionName: 'getBin',
+        args: [binId]
+      }),
+      params.client.readContract({
+        address: params.pair,
+        abi,
+        functionName: 'totalSupply',
+        args: [BigInt(binId)]
+      })
+    ])
+    bins.push({ reserveX, reserveY })
+    totalSupplies.push(totalSupply)
+  }
+
+  return { bins, totalSupplies }
 }
 
 export function resolveSwapTarget(quote: Quote): {
@@ -334,6 +480,161 @@ export async function buildAddLiquidityCalls(params: {
   calls.push(toMcpCall(router, data, value))
 
   return { calls, router, pairAddress, activeId }
+}
+
+export async function buildRemoveLiquidityCalls(params: {
+  client: BasePublicClient
+  wallet: Address
+  version: LbVersion
+  pair?: Address
+  tokenX?: Token
+  tokenY?: Token
+  binStep?: number
+  binIds: number[]
+  /** Per-bin LP share amounts to burn (same order as binIds). */
+  liquidityAmounts: bigint[]
+  amountSlippageBps: number
+  ttl: number
+  nativeX?: boolean
+  nativeY?: boolean
+}): Promise<{
+  calls: McpCall[]
+  router: Address
+  pairAddress: Address
+  activeId: number
+  amountXMin: bigint
+  amountYMin: bigint
+  liquidityAmounts: string[]
+}> {
+  if (params.nativeX && params.tokenX && !isWethAddress(getAddress(params.tokenX.address))) {
+    throw new SectorOneError(
+      'INVALID_NATIVE_SIDE',
+      '--native-x requires token-x to be WETH (0x4200...0006), the native ETH side on Base.'
+    )
+  }
+  if (params.nativeY && params.tokenY && !isWethAddress(getAddress(params.tokenY.address))) {
+    throw new SectorOneError(
+      'INVALID_NATIVE_SIDE',
+      '--native-y requires token-y to be WETH (0x4200...0006), the native ETH side on Base.'
+    )
+  }
+
+  const resolved = await resolveLbPair({
+    client: params.client,
+    version: params.version,
+    pair: params.pair,
+    tokenX: params.tokenX,
+    tokenY: params.tokenY,
+    binStep: params.binStep
+  })
+
+  if (params.liquidityAmounts.length !== params.binIds.length) {
+    throw new SectorOneError(
+      'INVALID_LIQUIDITY_AMOUNTS',
+      'liquidity amount count must match bin id count.'
+    )
+  }
+
+  for (const [i, amount] of params.liquidityAmounts.entries()) {
+    if (amount <= 0n) {
+      throw new SectorOneError(
+        'ZERO_LIQUIDITY',
+        `Liquidity amount for bin #${params.binIds[i]} must be greater than zero.`
+      )
+    }
+  }
+
+  const pairVersion = params.version === 'v22' ? 'v22' : 'v2'
+  const { activeId } = await PairV2.getLBPairReservesAndId(
+    resolved.pairAddress,
+    pairVersion,
+    asSdkClient(params.client)
+  )
+
+  const { bins, totalSupplies } = await fetchBinReservesForRemove({
+    client: params.client,
+    version: params.version,
+    pair: resolved.pairAddress,
+    binIds: params.binIds
+  })
+
+  const pairEntity = new PairV2(resolved.tokenX, resolved.tokenY)
+  const amountsToRemove = params.liquidityAmounts.map((a) => a.toString())
+  const { amountXMin, amountYMin } = pairEntity.calculateAmountsToRemove(
+    params.binIds,
+    activeId,
+    bins,
+    totalSupplies,
+    amountsToRemove,
+    bpsToPercent(params.amountSlippageBps)
+  )
+
+  const amountXMinBig = BigInt(amountXMin.toString())
+  const amountYMinBig = BigInt(amountYMin.toString())
+
+  const router = getRouterAddress(params.version)
+  const abi = getRouterAbi(params.version)
+  const deadline = BigInt(Math.floor(Date.now() / 1000) + params.ttl)
+  const ids = params.binIds.map((id) => BigInt(id))
+  const amounts = params.liquidityAmounts.map((a) => a)
+
+  const tokenXAddr = getAddress(resolved.tokenX.address)
+  const tokenYAddr = getAddress(resolved.tokenY.address)
+
+  const useNative =
+    (params.nativeX && isWethAddress(tokenXAddr)) ||
+    (params.nativeY && isWethAddress(tokenYAddr))
+
+  let data: `0x${string}`
+
+  if (useNative) {
+    const wethIsX = isWethAddress(tokenXAddr)
+    const token = wethIsX ? tokenYAddr : tokenXAddr
+    const amountTokenMin = wethIsX ? amountYMinBig : amountXMinBig
+    const amountNativeMin = wethIsX ? amountXMinBig : amountYMinBig
+    const nativeFn = params.version === 'v22' ? 'removeLiquidityNATIVE' : 'removeLiquidityAVAX'
+
+    data = encodeFunctionData({
+      abi,
+      functionName: nativeFn,
+      args: [
+        token,
+        resolved.binStep,
+        amountTokenMin,
+        amountNativeMin,
+        ids,
+        amounts,
+        params.wallet,
+        deadline
+      ]
+    })
+  } else {
+    data = encodeFunctionData({
+      abi,
+      functionName: 'removeLiquidity',
+      args: [
+        tokenXAddr,
+        tokenYAddr,
+        resolved.binStep,
+        amountXMinBig,
+        amountYMinBig,
+        ids,
+        amounts,
+        params.wallet,
+        deadline
+      ]
+    })
+  }
+
+  return {
+    calls: [toMcpCall(router, data, 0n)],
+    router,
+    pairAddress: resolved.pairAddress,
+    activeId,
+    amountXMin: amountXMinBig,
+    amountYMin: amountYMinBig,
+    liquidityAmounts: amountsToRemove
+  }
 }
 
 export async function readPositionAmounts(params: {

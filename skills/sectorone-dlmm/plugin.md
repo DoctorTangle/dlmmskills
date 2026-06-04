@@ -204,6 +204,39 @@ MVP distribution: `SPOT`. Approvals for ERC-20 legs precede the router call.
 
 ---
 
+## Build Remove Liquidity
+
+Close or reduce LP in specific bins. Use `read-position` first to discover bin IDs and sizes.
+
+**How much to remove** — specify exactly one of:
+
+| Flag | Meaning |
+| --- | --- |
+| `--remove-all` | Burn 100% of your LP shares in each listed bin |
+| `--fraction <n>` | Remove a fraction per bin (`0 < n <= 1`, e.g. `0.5` = 50%) |
+| `--amounts <list>` | Explicit LP share amounts per bin (comma-separated, same order as `--bin-ids`) |
+
+```bash
+npm run sectorone -- build-remove-liquidity \
+  --wallet "$BASE_MCP_WALLET" \
+  --token-x 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 \
+  --token-y 0x4200000000000000000000000000000000000006 \
+  --token-x-decimals 6 \
+  --token-y-decimals 18 \
+  --bin-step 25 \
+  --bin-ids 8376297,8376298,8376299 \
+  --remove-all \
+  --amount-slippage-bps 50 \
+  --ttl 1200 \
+  --json
+```
+
+Optional: `--pair <lbPairAddress>` if you already know the pool address. Use `--native-x` / `--native-y` to receive **native ETH** when the WETH side is withdrawn (`removeLiquidityNATIVE` / `removeLiquidityAVAX`).
+
+No ERC-20 approvals are needed for remove — the router burns your bin LP shares in one call.
+
+---
+
 ## Read LP Exposure
 
 ```bash
@@ -276,4 +309,5 @@ Always pass decimals explicitly. Do not guess symbols on Base.
 - Prepare a SectorOne swap of 100 USDC to WETH for my Base MCP wallet.
 - Show the active bin for the USDC/WETH 25 bps pool.
 - Build add-liquidity calldata for USDC/WETH around the active bin.
+- Remove all my liquidity from these bin IDs on SectorOne.
 - Show my SectorOne LP exposure for these bin IDs.

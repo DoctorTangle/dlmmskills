@@ -57,6 +57,7 @@ Default CLI slippage: **50 bps** (0.5%).
 
 - DLMM liquidity is **bin-local** — wrong bin range or wide SPOT distribution can leave capital idle or exposed.
 - Review `activeId`, `binStep`, and distribution before `build-add-liquidity`.
+- Before `build-remove-liquidity`, run `read-position` and confirm bin IDs; use `--remove-all` only after explicit user confirmation.
 - Price impact on swaps can be large in thin bins.
 
 ## MEV / Execution
