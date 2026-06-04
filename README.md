@@ -27,7 +27,7 @@ cp .env.example .env
 npm install
 ```
 
-`preinstall` clones [DoctorTangle/SectorOne](https://github.com/DoctorTangle/SectorOne) into `_sectorone-ref/` (gitignored). `postinstall` builds the SDK packages. Manual: `npm run bootstrap`.
+`preinstall` clones [DoctorTangle/SectorOne](https://github.com/DoctorTangle/SectorOne) into `_sectorone-ref/` (gitignored), pinned to the exact commit in `package.json` (`sectoroneSdkCommit`) and verified on every run. `postinstall` builds the SDK packages with `npm install --ignore-scripts` to limit install-time trust. Manual: `npm run bootstrap`.
 
 ## Environment
 
@@ -81,8 +81,13 @@ Skill entry points for agents:
 ## Safety
 
 - No private keys, no `writeContract`, no `cast send`
-- Default slippage 50 bps; see `skills/base-mcp/references/sectorone-safety.md`
+- Default slippage 50 bps; very-high (>20%) slippage is blocked unless `--confirm-high-slippage`
+- TTL default 1200s, hard max 3600s
+- `--native-*` flags require the token to be WETH (`0x4200...0006`)
+- `--infinite-approval` needs a second `--confirm-infinite-approval`; exact approval is the default
+- `normalize-calls` prints a risk summary (stderr) and supports `--strict` to reject non-SectorOne / non-approve calls
 - Default **`--lb-version v2`** (Joe 2.0 / LB v2.0) — most Base liquidity; use `v22` for newer pools; **v2.1** not deployed on Base
+- See `skills/base-mcp/references/sectorone-safety.md`
 
 ## Development
 

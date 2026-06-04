@@ -7,11 +7,13 @@ import {
   assertBaseChainOnly,
   assertSlippageSafe,
   parseAddress,
+  parseBinStep,
   parseDecimals,
   parseLbVersion,
   parseSlippageBps,
   parseTtlSeconds
 } from '../lib/validation.js'
+import { assertInfiniteApprovalConfirmed } from '../lib/safety.js'
 import { writeJson, writeHuman, writeWarning } from '../lib/output.js'
 
 export function registerBuildAddLiquidity(program: Command): void {
@@ -34,11 +36,17 @@ export function registerBuildAddLiquidity(program: Command): void {
     .option('--native-x', 'Token X is native ETH (WETH side)')
     .option('--native-y', 'Token Y is native ETH (WETH side)')
     .option('--infinite-approval', 'Infinite ERC-20 approvals')
+    .option('--confirm-infinite-approval', 'Required second confirmation for --infinite-approval')
     .option('--confirm-high-slippage', 'Allow very high (>20%) slippage after explicit user confirmation')
     .option('--json', 'JSON output to stdout')
     .action(async (opts) => {
       assertBaseChainOnly()
+      assertInfiniteApprovalConfirmed(
+        Boolean(opts.infiniteApproval),
+        Boolean(opts.confirmInfiniteApproval)
+      )
       const version = parseLbVersion(opts.lbVersion)
+      const binStep = parseBinStep(Number(opts.binStep))
       const amountSlippageBps = parseSlippageBps(Number(opts.amountSlippageBps))
       const priceSlippageBps = parseSlippageBps(Number(opts.priceSlippageBps))
       const ttl = parseTtlSeconds(Number(opts.ttl))
@@ -70,7 +78,7 @@ export function registerBuildAddLiquidity(program: Command): void {
         amountY: opts.amountY,
         tokenXDecimals: tokenX.decimals,
         tokenYDecimals: tokenY.decimals,
-        binStep: Number(opts.binStep),
+        binStep,
         version,
         amountSlippageBps,
         priceSlippageBps,
@@ -89,11 +97,15 @@ export function registerBuildAddLiquidity(program: Command): void {
           action: 'addLiquidity',
           pair: pairAddress,
           activeId,
-          binStep: Number(opts.binStep),
+          binStep,
           tokenX: getAddress(tokenX.address),
           tokenY: getAddress(tokenY.address),
           distribution: opts.distribution,
-          router: getAddress(router)
+          router: getAddress(router),
+          approvalType: opts.infiniteApproval ? 'infinite' : 'exact',
+          ...(opts.infiniteApproval
+            ? { approvalRisk: 'unlimited allowance granted to router' }
+            : {})
         },
         calls
       }

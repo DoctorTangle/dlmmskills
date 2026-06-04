@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # npm ci is unsuitable here: the @sectorone/* deps are file: links into
+      # _sectorone-ref, which the pinned preinstall bootstrap clones at install
+      # time. npm install runs that bootstrap + builds the SDK.
+      - name: Install (clones pinned SectorOne SDK, builds it)
+        run: npm install
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      # Non-blocking: file: deps can add noise; surface advisories without
+      # failing the build.
+      - name: Audit
+        run: npm audit --audit-level=high
+        continue-on-error: true

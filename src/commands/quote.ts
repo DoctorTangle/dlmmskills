@@ -11,8 +11,11 @@ import {
   assertSlippageSafe,
   parseAddress,
   parseDecimals,
-  parseSlippageBps
+  parseMaxHops,
+  parseSlippageBps,
+  parseTtlSeconds
 } from '../lib/validation.js'
+import { assertNativeIsWeth } from '../lib/safety.js'
 import { writeJson, writeHuman, writeWarning } from '../lib/output.js'
 import { collectStrings } from '../lib/cli-parse.js'
 
@@ -51,6 +54,9 @@ export function registerQuote(program: Command): void {
         decimals: parseDecimals(Number(opts.tokenOutDecimals), 'token-out-decimals')
       })
 
+      assertNativeIsWeth(Boolean(opts.nativeIn), tokenIn.address, '--native-in')
+      assertNativeIsWeth(Boolean(opts.nativeOut), tokenOut.address, '--native-out')
+
       const baseTokens = (opts.baseToken as string[]).map(parseBaseTokenArg)
 
       const client = createBasePublicClient()
@@ -67,8 +73,8 @@ export function registerQuote(program: Command): void {
         isNativeIn: Boolean(opts.nativeIn),
         isNativeOut: Boolean(opts.nativeOut),
         baseTokens: baseTokens.length ? baseTokens : undefined,
-        maxHops: Number(opts.maxHops),
-        ttl: Number(opts.ttl)
+        maxHops: parseMaxHops(Number(opts.maxHops)),
+        ttl: parseTtlSeconds(Number(opts.ttl))
       })
 
       const payload = formatQuoteOutput({

@@ -17,7 +17,8 @@ Never use `walletClient.writeContract`, `cast send`, browser wallet signers, or 
 
 - **Swap:** ERC-20 `tokenIn` approval to the LB router when allowance is insufficient (exact amount by default).
 - **Add liquidity:** Approvals for each ERC-20 leg before the router call.
-- **Native ETH:** No ERC-20 approval; router `value` carries the native deposit.
+- **Native ETH:** No ERC-20 approval; router `value` carries the native deposit. `--native-in`/`--native-out`/`--native-x`/`--native-y` require the relevant token to be WETH (`0x4200...0006`) or the command errors.
+- **Infinite approval:** `--infinite-approval` (or `--infinite` for `check-approval`) grants an unlimited allowance and requires an explicit second confirmation `--confirm-infinite-approval`. Build summaries expose `approvalType: "infinite" | "exact"`.
 
 ## Slippage (basis points)
 
@@ -32,8 +33,13 @@ Default CLI slippage: **50 bps** (0.5%).
 
 ## Deadlines
 
-- Default swap/LP TTL: **1200 seconds** (20 minutes).
+- Default swap/LP TTL: **1200 seconds** (20 minutes); hard maximum **3600 seconds** (1 hour) to limit MEV/execution risk from stale deadlines.
 - Rebuild calldata if the user waits past the deadline.
+
+## normalize-calls
+
+- Converts legacy unsigned txs to the `send_calls` shape. It prints a per-call risk summary (target, selector, value, known/unknown) to stderr.
+- `--strict` rejects any call that is neither an ERC-20 `approve` nor targeted at a known SectorOne contract (v2/v22 router, Liquidity Helper). Use it when normalizing untrusted input.
 
 ## Protocol Versions
 

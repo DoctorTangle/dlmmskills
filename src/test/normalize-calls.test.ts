@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeCalls } from '../lib/normalize-calls.js'
+import { analyzeCalls, normalizeCalls } from '../lib/normalize-calls.js'
 import { SectorOneError } from '../lib/errors.js'
+
+const ROUTER_V22 = '0x87aC1EB5596D47f6fd7d0D17bEE233783dB5CfEC'
+const RANDOM_TARGET = '0x1111111111111111111111111111111111111111'
+const APPROVE_DATA = '0x095ea7b3000000000000000000000000'
 
 describe('normalizeCalls', () => {
   it('removes from and preserves order', () => {
@@ -84,5 +88,46 @@ describe('normalizeCalls', () => {
         }
       ])
     ).toThrow(SectorOneError)
+  })
+})
+
+describe('analyzeCalls / strict mode', () => {
+  it('flags an ERC-20 approve to an arbitrary token as known', () => {
+    const payload = normalizeCalls([
+      { to: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', data: APPROVE_DATA }
+    ])
+    const [risk] = analyzeCalls(payload)
+    expect(risk?.isApprove).toBe(true)
+    expect(risk?.known).toBe(true)
+    expect(risk?.selector).toBe('0x095ea7b3')
+  })
+
+  it('flags a call to a known SectorOne router as known', () => {
+    const payload = normalizeCalls([{ to: ROUTER_V22, data: '0xdeadbeef' }])
+    const [risk] = analyzeCalls(payload)
+    expect(risk?.knownTarget).toBe(true)
+    expect(risk?.known).toBe(true)
+  })
+
+  it('flags an unknown target+selector and strict mode rejects it', () => {
+    const payload = normalizeCalls([{ to: RANDOM_TARGET, data: '0xdeadbeef' }])
+    const [risk] = analyzeCalls(payload)
+    expect(risk?.known).toBe(false)
+
+    expect(() =>
+      normalizeCalls([{ to: RANDOM_TARGET, data: '0xdeadbeef' }], { strict: true })
+    ).toThrow(SectorOneError)
+  })
+
+  it('strict mode passes approves and known routers', () => {
+    expect(() =>
+      normalizeCalls(
+        [
+          { to: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', data: APPROVE_DATA },
+          { to: ROUTER_V22, data: '0xabcdabcd' }
+        ],
+        { strict: true }
+      )
+    ).not.toThrow()
   })
 })

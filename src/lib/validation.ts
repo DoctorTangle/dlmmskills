@@ -72,11 +72,66 @@ export function assertSlippageSafe(bps: number, strict = false): SlippageLevel {
   return level
 }
 
+export const MAX_TTL_SECONDS = 3600
+
 export function parseTtlSeconds(ttl: number): number {
-  if (!Number.isFinite(ttl) || ttl <= 0) {
-    throw new SectorOneError('INVALID_TTL', 'TTL must be a positive number of seconds.')
+  if (!Number.isFinite(ttl) || ttl <= 0 || ttl > MAX_TTL_SECONDS) {
+    throw new SectorOneError(
+      'INVALID_TTL',
+      `TTL must be between 1 and ${MAX_TTL_SECONDS} seconds. Long deadlines increase MEV/execution risk.`
+    )
   }
   return Math.trunc(ttl)
+}
+
+export function parsePositiveInt(value: number, label = 'value'): number {
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new SectorOneError(
+      'INVALID_INT',
+      `${label} must be a positive integer.`
+    )
+  }
+  return value
+}
+
+export function parseBinStep(value: number): number {
+  if (!Number.isInteger(value) || value <= 0 || value > 10_000) {
+    throw new SectorOneError(
+      'INVALID_BIN_STEP',
+      'bin-step must be a positive integer (1-10000).'
+    )
+  }
+  return value
+}
+
+export function parseMaxHops(value: number): number {
+  if (!Number.isInteger(value) || value < 1 || value > 4) {
+    throw new SectorOneError(
+      'INVALID_MAX_HOPS',
+      'max-hops must be an integer between 1 and 4.'
+    )
+  }
+  return value
+}
+
+export function parseBinIds(value: string): number[] {
+  const ids = String(value)
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => Number(s))
+  if (ids.length === 0) {
+    throw new SectorOneError('INVALID_BIN_IDS', 'Provide at least one bin id.')
+  }
+  for (const id of ids) {
+    if (!Number.isInteger(id) || id < 0) {
+      throw new SectorOneError(
+        'INVALID_BIN_IDS',
+        `Invalid bin id "${id}". Bin ids must be non-negative integers.`
+      )
+    }
+  }
+  return ids
 }
 
 export function assertBaseChainOnly(chainId?: number): void {

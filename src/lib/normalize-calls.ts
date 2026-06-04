@@ -1,8 +1,59 @@
-import { getAddress, isAddress, type Hex } from 'viem'
+import { getAddress, isAddress, type Address, type Hex } from 'viem'
+import { ChainId } from '@sectorone/sdk-core'
+import {
+  LB_ROUTER_ADDRESS,
+  LB_ROUTER_V22_ADDRESS,
+  LIQUIDITY_HELPER_V2_ADDRESS
+} from '@sectorone/sdk-v2'
 import type { BaseMcpPayload, RawUnsignedCall } from './types.js'
 import { SectorOneError } from './errors.js'
 
 const HEX_DATA = /^0x([0-9a-fA-F]{2})*$/
+const ZERO = '0x0000000000000000000000000000000000000000'
+const APPROVE_SELECTOR = '0x095ea7b3'
+
+const KNOWN_TARGETS = new Set(
+  [
+    LB_ROUTER_ADDRESS[ChainId.BASE],
+    LB_ROUTER_V22_ADDRESS[ChainId.BASE],
+    LIQUIDITY_HELPER_V2_ADDRESS[ChainId.BASE]
+  ]
+    .filter((a) => a && a.toLowerCase() !== ZERO)
+    .map((a) => a.toLowerCase())
+)
+
+export type CallRisk = {
+  index: number
+  to: Address
+  selector: string
+  value: string
+  knownTarget: boolean
+  isApprove: boolean
+  /** A call is considered known when it is an ERC-20 approve or targets a known SectorOne contract. */
+  known: boolean
+}
+
+function selectorOf(data: Hex): string {
+  return data.length >= 10 ? data.slice(0, 10) : '0x'
+}
+
+/** Derive a per-call risk summary for the normalized Base MCP payload. */
+export function analyzeCalls(payload: BaseMcpPayload): CallRisk[] {
+  return payload.calls.map((call, index) => {
+    const selector = selectorOf(call.data)
+    const knownTarget = KNOWN_TARGETS.has(call.to.toLowerCase())
+    const isApprove = selector === APPROVE_SELECTOR
+    return {
+      index,
+      to: call.to,
+      selector,
+      value: call.value,
+      knownTarget,
+      isApprove,
+      known: knownTarget || isApprove
+    }
+  })
+}
 
 function toHexValue(value: RawUnsignedCall['value'], index: number): `0x${string}` {
   if (value === undefined || value === null) return '0x0'
@@ -36,7 +87,10 @@ function toCalldata(data: RawUnsignedCall['data'], index: number): Hex {
   return data as Hex
 }
 
-export function normalizeCalls(input: RawUnsignedCall[]): BaseMcpPayload {
+export function normalizeCalls(
+  input: RawUnsignedCall[],
+  options: { strict?: boolean } = {}
+): BaseMcpPayload {
   const calls = input.map((raw, index) => {
     if (!raw.to || !isAddress(raw.to)) {
       throw new SectorOneError(
@@ -51,5 +105,20 @@ export function normalizeCalls(input: RawUnsignedCall[]): BaseMcpPayload {
     }
   })
 
-  return { chain: 'base', calls }
+  const payload: BaseMcpPayload = { chain: 'base', calls }
+
+  if (options.strict) {
+    const unknown = analyzeCalls(payload).filter((r) => !r.known)
+    if (unknown.length > 0) {
+      const detail = unknown
+        .map((r) => `#${r.index} to=${r.to} selector=${r.selector}`)
+        .join('; ')
+      throw new SectorOneError(
+        'UNKNOWN_CALL_TARGET',
+        `Strict mode rejected ${unknown.length} call(s) not targeting a known SectorOne contract or ERC-20 approve: ${detail}`
+      )
+    }
+  }
+
+  return payload
 }

@@ -4,7 +4,7 @@ import { formatUnits, getAddress } from 'viem'
 import type { Command } from 'commander'
 import { createBasePublicClient } from '../lib/client.js'
 import { makeToken } from '../lib/tokens.js'
-import { parseDecimals, parseLbVersion } from '../lib/validation.js'
+import { parseBinStep, parseDecimals, parseLbVersion } from '../lib/validation.js'
 import { writeJson, writeHuman } from '../lib/output.js'
 import { SectorOneError } from '../lib/errors.js'
 
@@ -25,7 +25,7 @@ export function registerReadPool(program: Command): void {
       const client = createBasePublicClient()
 
       let pairAddress: `0x${string}`
-      let binStep = opts.binStep ? Number(opts.binStep) : undefined
+      let binStep = opts.binStep ? parseBinStep(Number(opts.binStep)) : undefined
       let tokenXAddr = opts.tokenX as string | undefined
       let tokenYAddr = opts.tokenY as string | undefined
       const xDecimals = opts.tokenXDecimals

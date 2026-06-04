@@ -4,6 +4,7 @@
   "private": true,
   "description": "SectorOne DLMM skill and CLI for Base MCP send_calls",
   "type": "module",
+  "sectoroneSdkCommit": "837a99f25a1b521d1a248bf63f3413af4ba3675b",
   "scripts": {
     "dev": "tsx src/cli/sectorone.ts",
     "sectorone": "tsx src/cli/sectorone.ts",

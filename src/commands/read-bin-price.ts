@@ -1,6 +1,7 @@
 import { Bin } from '@sectorone/sdk-v2'
 import type { Command } from 'commander'
 import { SectorOneError } from '../lib/errors.js'
+import { parseBinStep } from '../lib/validation.js'
 import { writeJson, writeHuman } from '../lib/output.js'
 
 export function registerReadBinPrice(program: Command): void {
@@ -12,10 +13,7 @@ export function registerReadBinPrice(program: Command): void {
     .requiredOption('--bin-step <n>', 'Pair bin step')
     .option('--json', 'JSON output to stdout')
     .action(async (opts) => {
-      const binStep = Number(opts.binStep)
-      if (!Number.isFinite(binStep) || binStep <= 0) {
-        throw new SectorOneError('INVALID_BIN_STEP', 'bin-step must be a positive number.')
-      }
+      const binStep = parseBinStep(Number(opts.binStep))
 
       const hasBinId = opts.binId !== undefined
       const hasPrice = opts.price !== undefined

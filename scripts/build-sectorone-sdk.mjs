@@ -22,7 +22,13 @@ function buildPkg(folder, name) {
   if (distReady(pkgDir)) return
   console.error(`[dlmmskills] Building ${name}...`)
   if (!existsSync(join(pkgDir, 'node_modules'))) {
-    execSync('npm install', { cwd: pkgDir, stdio: 'inherit', env: process.env })
+    // --ignore-scripts: do not run lifecycle scripts from the external SDK's
+    // (transitive) dependencies. Narrows the install-time trust boundary.
+    execSync('npm install --ignore-scripts', {
+      cwd: pkgDir,
+      stdio: 'inherit',
+      env: process.env
+    })
   }
   execSync('npm run build', { cwd: pkgDir, stdio: 'inherit', env: process.env })
 }

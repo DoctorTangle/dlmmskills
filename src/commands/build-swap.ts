@@ -16,6 +16,7 @@ import {
   parseSlippageBps,
   parseTtlSeconds
 } from '../lib/validation.js'
+import { assertNativeIsWeth, assertInfiniteApprovalConfirmed } from '../lib/safety.js'
 import { writeJson, writeHuman, writeWarning } from '../lib/output.js'
 import { collectStrings } from '../lib/cli-parse.js'
 
@@ -35,10 +36,15 @@ export function registerBuildSwap(program: Command): void {
     .option('--native-out', 'Output is native ETH')
     .option('--base-token <address[:decimals]>', 'Routing base token, decimals default 18 (repeatable)', collectStrings, [])
     .option('--infinite-approval', 'Use infinite ERC-20 approval')
+    .option('--confirm-infinite-approval', 'Required second confirmation for --infinite-approval')
     .option('--confirm-high-slippage', 'Allow very high (>20%) slippage after explicit user confirmation')
     .option('--json', 'JSON output to stdout')
     .action(async (opts) => {
       assertBaseChainOnly()
+      assertInfiniteApprovalConfirmed(
+        Boolean(opts.infiniteApproval),
+        Boolean(opts.confirmInfiniteApproval)
+      )
       const slippageBps = parseSlippageBps(Number(opts.slippageBps))
       const ttl = parseTtlSeconds(Number(opts.ttl))
       const level = assertSlippageSafe(slippageBps, !opts.confirmHighSlippage)
@@ -57,6 +63,9 @@ export function registerBuildSwap(program: Command): void {
         address: opts.tokenOut,
         decimals: parseDecimals(Number(opts.tokenOutDecimals), 'token-out-decimals')
       })
+
+      assertNativeIsWeth(Boolean(opts.nativeIn), tokenIn.address, '--native-in')
+      assertNativeIsWeth(Boolean(opts.nativeOut), tokenOut.address, '--native-out')
 
       const baseTokens = (opts.baseToken as string[]).map(parseBaseTokenArg)
 
@@ -119,7 +128,11 @@ export function registerBuildSwap(program: Command): void {
           expectedOutRaw: quote.expectedOutRaw,
           expectedOutFormatted: quote.expectedOutFormatted,
           allowedSlippageBps: slippageBps,
-          router: getAddress(router)
+          router: getAddress(router),
+          approvalType: opts.infiniteApproval ? 'infinite' : 'exact',
+          ...(opts.infiniteApproval
+            ? { approvalRisk: 'unlimited allowance granted to router' }
+            : {})
         },
         calls
       }

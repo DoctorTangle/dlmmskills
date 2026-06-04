@@ -3,7 +3,7 @@ import type { Command } from 'commander'
 import { createBasePublicClient } from '../lib/client.js'
 import { readPositionAmounts } from '../lib/dlmm.js'
 import { makeToken } from '../lib/tokens.js'
-import { parseAddress, parseDecimals } from '../lib/validation.js'
+import { parseAddress, parseBinIds, parseDecimals } from '../lib/validation.js'
 import { writeJson, writeHuman } from '../lib/output.js'
 
 export function registerReadPosition(program: Command): void {
@@ -21,11 +21,7 @@ export function registerReadPosition(program: Command): void {
     .action(async (opts) => {
       const wallet = parseAddress(opts.wallet, 'wallet')
       const pair = parseAddress(opts.pair, 'pair')
-      const binIds = String(opts.binIds)
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .map((s) => Number(s))
+      const binIds = parseBinIds(opts.binIds)
 
       const tokenX =
         opts.tokenX && opts.tokenXDecimals

@@ -86,6 +86,8 @@ If you receive legacy unsigned txs with `from` and decimal `value`, normalize th
 pnpm sectorone normalize-calls --json < unsigned.json
 ```
 
+A per-call risk summary (target, selector, value, known/unknown) is printed to stderr; stdout stays pure `{ chain, calls }`. Add `--strict` to reject any call that is neither an ERC-20 `approve` nor aimed at a known SectorOne contract (v2/v22 router, Liquidity Helper) — recommended for untrusted input.
+
 Then call Base MCP `send_calls` with the normalized payload. Preserve call order (approvals before router).
 
 ---
@@ -233,8 +235,14 @@ pnpm sectorone read-position \
 
 - Swaps: `--native-in` / `--native-out` on `quote` and `build-swap`.
 - WETH on Base: `0x4200000000000000000000000000000000000006`.
+- Native flags require the corresponding token to be WETH; otherwise the command errors (`INVALID_NATIVE_SIDE`/`INVALID_NATIVE_IN`).
 - Native swaps set router `value` on the swap call; no ERC-20 approval for native input.
 - Add liquidity: `--native-x` or `--native-y` when depositing native ETH on the WETH side (`addLiquidityNATIVE`).
+
+## Approvals
+
+- Exact approval is the default. `--infinite-approval` (swap/LP) and `--infinite` (`check-approval`) require a second `--confirm-infinite-approval`; build summaries expose `approvalType`.
+- TTL default 1200s, hard max 3600s.
 
 ---
 
