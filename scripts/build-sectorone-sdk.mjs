@@ -30,6 +30,11 @@ function buildPkg(folder, name) {
       env: process.env
     })
   }
+  // The vendored SDK packages build with `tsup src/index.ts --dts` but do NOT
+  // declare tsup/typescript in their own devDependencies, so `npm run build`
+  // resolves them via npm hoisting from this project's root node_modules.
+  // Keep `tsup` and `typescript` in this repo's root devDependencies — removing
+  // them breaks the SDK build on a fresh clone / in CI.
   execSync('npm run build', { cwd: pkgDir, stdio: 'inherit', env: process.env })
 }
 
