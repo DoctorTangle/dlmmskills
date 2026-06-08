@@ -19,6 +19,8 @@ Build **unsigned** SectorOne DLMM transactions on **Base mainnet** and submit th
 
 ## Installation (two phases)
 
+> **Bankr bots:** Install `swap-planner` or `liquidity-planner` instead — no npm/SDK. See [docs/BANKR.md](../../docs/BANKR.md).
+
 ### Phase 1 — Agent skill (instructions)
 
 Install from this repository with the [Skills CLI](https://skills.sh):

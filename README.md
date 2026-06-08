@@ -30,6 +30,15 @@ npx skills add DoctorTangle/dlmmskills --skill sectorone-dlmm -a cursor -y
 
 Add other agents with `-a claude-code`, `-a codex`, etc. List available skills: `npx skills add DoctorTangle/dlmmskills --list`.
 
+**Bankr bots (no SDK):**
+
+```bash
+npx skills add DoctorTangle/dlmmskills --skill swap-planner
+npx skills add DoctorTangle/dlmmskills --skill liquidity-planner
+```
+
+See [docs/BANKR.md](docs/BANKR.md) for why this split matters vs Uniswap.
+
 **Phase 2 — CLI** (required for quotes and calldata):
 
 ```bash

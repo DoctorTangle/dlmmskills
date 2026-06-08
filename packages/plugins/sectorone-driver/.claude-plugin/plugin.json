@@ -1,0 +1,13 @@
+{
+  "name": "sectorone-driver",
+  "version": "0.1.0",
+  "description": "Plan SectorOne DLMM swaps and liquidity on Base — verify tokens, query docs, DexScreener pools, open the SectorOne app. No SDK install required.",
+  "author": {
+    "name": "DoctorTangle",
+    "email": "DoctorTangle@users.noreply.github.com"
+  },
+  "homepage": "https://github.com/DoctorTangle/dlmmskills",
+  "keywords": ["sectorone", "dlmm", "joe", "base", "swap", "liquidity", "deep-links", "bankr"],
+  "license": "MIT",
+  "skills": ["./skills/swap-planner", "./skills/liquidity-planner"]
+}
