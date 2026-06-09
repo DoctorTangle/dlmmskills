@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   assertInfiniteApprovalConfirmed,
-  assertNativeIsWeth
+  assertNativeIsWeth,
+  assertNativeLiquiditySupported
 } from '../lib/safety.js'
 import { SectorOneError } from '../lib/errors.js'
 
@@ -37,5 +38,17 @@ describe('assertInfiniteApprovalConfirmed', () => {
 
   it('passes when infinite approval is not requested', () => {
     expect(() => assertInfiniteApprovalConfirmed(false, false)).not.toThrow()
+  })
+})
+
+describe('assertNativeLiquiditySupported', () => {
+  it('blocks native flags on Base v2', () => {
+    expect(() => assertNativeLiquiditySupported('v2', true, false)).toThrow(
+      SectorOneError
+    )
+  })
+
+  it('allows native flags on v22', () => {
+    expect(() => assertNativeLiquiditySupported('v22', true, false)).not.toThrow()
   })
 })

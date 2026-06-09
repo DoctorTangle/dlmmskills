@@ -3,6 +3,7 @@ import type { Command } from 'commander'
 import { createBasePublicClient } from '../lib/client.js'
 import {
   buildRemoveLiquidityCalls,
+  buildRemoveLiquidityBatches,
   fetchUserLiquidityBalances,
   resolveLbPair,
   scaleLiquidityBalances
@@ -24,6 +25,7 @@ import {
 import { assertNativeIsWeth } from '../lib/safety.js'
 import { writeJson, writeHuman, writeWarning } from '../lib/output.js'
 import { SectorOneError } from '../lib/errors.js'
+import { parseBinCount } from '../lib/bin-range.js'
 
 export function registerBuildRemoveLiquidity(program: Command): void {
   program
@@ -49,6 +51,10 @@ export function registerBuildRemoveLiquidity(program: Command): void {
     .option('--native-x', 'Receive native ETH for the WETH (token X) side')
     .option('--native-y', 'Receive native ETH for the WETH (token Y) side')
     .option('--confirm-high-slippage', 'Allow very high (>20%) slippage after explicit user confirmation')
+    .option(
+      '--batch-size <n>',
+      'Split remove into sequential batches (recommended ≤10–15 bins per tx on Base)'
+    )
     .option('--json', 'JSON output to stdout')
     .action(async (opts) => {
       assertBaseChainOnly()
@@ -133,6 +139,62 @@ export function registerBuildRemoveLiquidity(program: Command): void {
         }
       }
 
+      if (opts.batchSize) {
+        const batchSize = parseBinCount(Number(opts.batchSize))
+        const batched = await buildRemoveLiquidityBatches({
+          client,
+          wallet,
+          version,
+          pair: resolved.pairAddress,
+          tokenX,
+          tokenY,
+          binStep,
+          binIds,
+          liquidityAmounts,
+          amountSlippageBps,
+          ttl,
+          batchSize,
+          nativeX: Boolean(opts.nativeX),
+          nativeY: Boolean(opts.nativeY)
+        })
+
+        const payload = {
+          chain: 'base' as const,
+          summary: {
+            protocol: 'SectorOne DLMM',
+            chainId: 8453,
+            action: 'removeLiquidity',
+            pair: batched.pairAddress,
+            activeId: batched.activeId,
+            binStep,
+            binIds,
+            tokenX: getAddress(tokenX.address),
+            tokenY: getAddress(tokenY.address),
+            router: getAddress(batched.router),
+            receiveNative: Boolean(opts.nativeX || opts.nativeY),
+            batchCount: batched.batches.length,
+            batchSize
+          },
+          batches: batched.batches.map((b) => ({
+            batchIndex: b.batchIndex,
+            binIds: b.binIds,
+            calls: b.calls,
+            summary: b.summary
+          }))
+        }
+
+        if (opts.json) {
+          writeJson(payload)
+          return
+        }
+
+        writeHuman([
+          `Built ${batched.batches.length} remove batch(es) (${batchSize} bins max each).`,
+          `Pair: ${batched.pairAddress}`
+        ])
+        return
+      }
+
       const {
         calls,
         router,
@@ -140,7 +202,10 @@ export function registerBuildRemoveLiquidity(program: Command): void {
         activeId,
         amountXMin,
         amountYMin,
-        liquidityAmounts: liquidityUsed
+        liquidityAmounts: liquidityUsed,
+        lpApprovalNeeded,
+        approvalCalls,
+        liquidityCalls
       } = await buildRemoveLiquidityCalls({
         client,
         wallet,
@@ -173,7 +238,10 @@ export function registerBuildRemoveLiquidity(program: Command): void {
           tokenX: getAddress(tokenX.address),
           tokenY: getAddress(tokenY.address),
           router: getAddress(router),
-          receiveNative: Boolean(opts.nativeX || opts.nativeY)
+          receiveNative: Boolean(opts.nativeX || opts.nativeY),
+          lpApprovalNeeded,
+          approvalCalls,
+          liquidityCalls
         },
         calls
       }

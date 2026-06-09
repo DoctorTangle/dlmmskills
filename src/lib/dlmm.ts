@@ -1,4 +1,4 @@
-import { ChainId, Token, WNATIVE } from '@sectorone/sdk-core'
+import { ChainId, Token, TokenAmount, WNATIVE } from '@sectorone/sdk-core'
 import {
   Bin,
   LBFactoryABI,
@@ -18,6 +18,9 @@ import {
   PoolVersion,
   RouteV2,
   TradeV2,
+  getBidAskDistributionFromBinRange,
+  getCurveDistributionFromBinRange,
+  getUniformDistributionFromBinRange,
   type Quote
 } from '@sectorone/sdk-v2'
 import {
@@ -33,6 +36,13 @@ import { SectorOneError } from './errors.js'
 import { defaultBaseTokens, isWethAddress, makeToken } from './tokens.js'
 import type { LbVersion, McpCall, RouteHop } from './types.js'
 import { buildApprovalIfNeeded } from './approvals.js'
+import {
+  centeredBinRange,
+  chunkArray,
+  DEFAULT_LB_BIN_COUNT,
+  SUGGESTED_REMOVE_BATCH_SIZE
+} from './bin-range.js'
+import { assertNativeLiquiditySupported } from './safety.js'
 
 const CHAIN = ChainId.BASE
 
@@ -356,6 +366,75 @@ export async function assembleSwapCalls(params: {
   return calls
 }
 
+function distributionForBinRange(
+  distribution: LiquidityDistribution,
+  activeId: number,
+  binRange: [number, number],
+  tokenX: Token,
+  tokenY: Token,
+  amountXRaw: string,
+  amountYRaw: string
+): { deltaIds: number[]; distributionX: bigint[]; distributionY: bigint[] } {
+  const tokenXAmount = new TokenAmount(tokenX, amountXRaw)
+  const tokenYAmount = new TokenAmount(tokenY, amountYRaw)
+
+  if (distribution === LiquidityDistribution.SPOT) {
+    return getUniformDistributionFromBinRange(activeId, binRange)
+  }
+  if (distribution === LiquidityDistribution.CURVE) {
+    return getCurveDistributionFromBinRange(activeId, binRange, [
+      tokenXAmount,
+      tokenYAmount
+    ])
+  }
+  return getBidAskDistributionFromBinRange(activeId, binRange, [
+    tokenXAmount,
+    tokenYAmount
+  ])
+}
+
+const erc20BalanceAbi = [
+  {
+    type: 'function',
+    name: 'balanceOf',
+    stateMutability: 'view',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ type: 'uint256' }]
+  }
+] as const
+
+async function walletNeedsWethWrap(params: {
+  client: BasePublicClient
+  wallet: Address
+  tokenX: Token
+  tokenY: Token
+  amountX: string
+  amountY: string
+  nativeX?: boolean
+  nativeY?: boolean
+}): Promise<boolean> {
+  if (params.nativeX || params.nativeY) return false
+
+  const checks: { token: Token; amount: string }[] = [
+    { token: params.tokenX, amount: params.amountX },
+    { token: params.tokenY, amount: params.amountY }
+  ]
+
+  for (const { token, amount } of checks) {
+    if (!isWethAddress(getAddress(token.address))) continue
+    const needed = BigInt(amount)
+    if (needed <= 0n) continue
+    const balance = await params.client.readContract({
+      address: getAddress(token.address),
+      abi: erc20BalanceAbi,
+      functionName: 'balanceOf',
+      args: [params.wallet]
+    })
+    if (balance < needed) return true
+  }
+  return false
+}
+
 export async function buildAddLiquidityCalls(params: {
   client: BasePublicClient
   wallet: Address
@@ -371,6 +450,7 @@ export async function buildAddLiquidityCalls(params: {
   priceSlippageBps: number
   distribution: LiquidityDistribution
   ttl: number
+  binCount?: number
   nativeX?: boolean
   nativeY?: boolean
   infiniteApproval?: boolean
@@ -379,7 +459,18 @@ export async function buildAddLiquidityCalls(params: {
   router: Address
   pairAddress: Address
   activeId: number
+  binCount: number
+  binRange: [number, number]
+  needsWethWrap: boolean
+  approvalCalls: number
+  liquidityCalls: number
 }> {
+  assertNativeLiquiditySupported(
+    params.version,
+    Boolean(params.nativeX),
+    Boolean(params.nativeY)
+  )
+
   if (params.nativeX && !isWethAddress(getAddress(params.tokenX.address))) {
     throw new SectorOneError(
       'INVALID_NATIVE_SIDE',
@@ -428,6 +519,25 @@ export async function buildAddLiquidityCalls(params: {
     params.distribution
   )
 
+  const effectiveBinCount = params.binCount ?? DEFAULT_LB_BIN_COUNT
+  const binRange = centeredBinRange(activeId, effectiveBinCount)
+  const customDist =
+    params.binCount !== undefined
+      ? distributionForBinRange(
+          params.distribution,
+          activeId,
+          binRange,
+          lp.tokenX,
+          lp.tokenY,
+          lp.amountX,
+          lp.amountY
+        )
+      : {
+          deltaIds: lp.deltaIds,
+          distributionX: lp.distributionX,
+          distributionY: lp.distributionY
+        }
+
   const router = getRouterAddress(params.version)
   const abi = getRouterAbi(params.version)
   const deadline = BigInt(Math.floor(Date.now() / 1000) + params.ttl)
@@ -442,9 +552,9 @@ export async function buildAddLiquidityCalls(params: {
     amountYMin: BigInt(lp.amountYMin),
     activeIdDesired: BigInt(activeId),
     idSlippage: BigInt(lp.idSlippage),
-    deltaIds: lp.deltaIds.map((id) => BigInt(id)),
-    distributionX: lp.distributionX,
-    distributionY: lp.distributionY,
+    deltaIds: customDist.deltaIds.map((id) => BigInt(id)),
+    distributionX: customDist.distributionX,
+    distributionY: customDist.distributionY,
     to: params.wallet,
     refundTo: params.wallet,
     deadline
@@ -487,6 +597,8 @@ export async function buildAddLiquidityCalls(params: {
     if (ay.approvalNeeded && ay.call) calls.push(ay.call)
   }
 
+  const approvalCalls = calls.length
+
   let value = 0n
   if (useNative) {
     if (params.nativeX && isWethAddress(getAddress(lp.tokenX.address))) {
@@ -498,7 +610,28 @@ export async function buildAddLiquidityCalls(params: {
 
   calls.push(toMcpCall(router, data, value))
 
-  return { calls, router, pairAddress, activeId }
+  const needsWethWrap = await walletNeedsWethWrap({
+    client: params.client,
+    wallet: params.wallet,
+    tokenX: lp.tokenX,
+    tokenY: lp.tokenY,
+    amountX: lp.amountX,
+    amountY: lp.amountY,
+    nativeX: params.nativeX,
+    nativeY: params.nativeY
+  })
+
+  return {
+    calls,
+    router,
+    pairAddress,
+    activeId,
+    binCount: customDist.deltaIds.length,
+    binRange,
+    needsWethWrap,
+    approvalCalls,
+    liquidityCalls: 1
+  }
 }
 
 export async function buildRemoveLiquidityCalls(params: {
@@ -516,6 +649,7 @@ export async function buildRemoveLiquidityCalls(params: {
   ttl: number
   nativeX?: boolean
   nativeY?: boolean
+  assumeLpApproved?: boolean
 }): Promise<{
   calls: McpCall[]
   router: Address
@@ -524,7 +658,16 @@ export async function buildRemoveLiquidityCalls(params: {
   amountXMin: bigint
   amountYMin: bigint
   liquidityAmounts: string[]
+  lpApprovalNeeded: boolean
+  approvalCalls: number
+  liquidityCalls: number
 }> {
+  assertNativeLiquiditySupported(
+    params.version,
+    Boolean(params.nativeX),
+    Boolean(params.nativeY)
+  )
+
   if (params.nativeX && params.tokenX && !isWethAddress(getAddress(params.tokenX.address))) {
     throw new SectorOneError(
       'INVALID_NATIVE_SIDE',
@@ -645,14 +788,43 @@ export async function buildRemoveLiquidityCalls(params: {
     })
   }
 
+  const pairAbi = getLbPairAbi(params.version)
+  const lpApproved =
+    params.assumeLpApproved === true
+      ? true
+      : await params.client.readContract({
+          address: resolved.pairAddress,
+          abi: pairAbi,
+          functionName: 'isApprovedForAll',
+          args: [params.wallet, router]
+        })
+
+  const calls: McpCall[] = []
+  let lpApprovalNeeded = false
+
+  if (!lpApproved) {
+    lpApprovalNeeded = true
+    const approveData = encodeFunctionData({
+      abi: pairAbi,
+      functionName: 'setApprovalForAll',
+      args: [router, true]
+    })
+    calls.push(toMcpCall(resolved.pairAddress, approveData, 0n))
+  }
+
+  calls.push(toMcpCall(router, data, 0n))
+
   return {
-    calls: [toMcpCall(router, data, 0n)],
+    calls,
     router,
     pairAddress: resolved.pairAddress,
     activeId,
     amountXMin: amountXMinBig,
     amountYMin: amountYMinBig,
-    liquidityAmounts: amountsToRemove
+    liquidityAmounts: amountsToRemove,
+    lpApprovalNeeded,
+    approvalCalls: lpApprovalNeeded ? 1 : 0,
+    liquidityCalls: 1
   }
 }
 
@@ -915,6 +1087,152 @@ export function normalizeSwapArgs(
     to,
     deadline
   ]
+}
+
+export async function checkLpRouterApproval(params: {
+  client: BasePublicClient
+  wallet: Address
+  pair: Address
+  version: LbVersion
+}): Promise<{ router: Address; approved: boolean }> {
+  const router = getRouterAddress(params.version)
+  const pairAbi = getLbPairAbi(params.version)
+  const approved = await params.client.readContract({
+    address: params.pair,
+    abi: pairAbi,
+    functionName: 'isApprovedForAll',
+    args: [params.wallet, router]
+  })
+  return { router, approved }
+}
+
+export async function discoverLpBins(params: {
+  client: BasePublicClient
+  wallet: Address
+  pair: Address
+  version: LbVersion
+  scanBins?: number
+}): Promise<{
+  activeId: number
+  scanRange: [number, number]
+  bins: { id: number; lpBalance: string }[]
+  suggestedRemoveBatchSize: number
+}> {
+  const scanBins = params.scanBins ?? 60
+  const pairVersion = params.version === 'v22' ? 'v22' : 'v2'
+  const { activeId } = await PairV2.getLBPairReservesAndId(
+    params.pair,
+    pairVersion,
+    asSdkClient(params.client)
+  )
+  const scanRange = centeredBinRange(activeId, scanBins)
+  const pairAbi = getLbPairAbi(params.version)
+  const bins: { id: number; lpBalance: string }[] = []
+
+  for (let id = scanRange[0]; id <= scanRange[1]; id++) {
+    const balance = await params.client.readContract({
+      address: params.pair,
+      abi: pairAbi,
+      functionName: 'balanceOf',
+      args: [params.wallet, BigInt(id)]
+    })
+    if (balance > 0n) {
+      bins.push({ id, lpBalance: balance.toString() })
+    }
+  }
+
+  return {
+    activeId,
+    scanRange,
+    bins,
+    suggestedRemoveBatchSize: SUGGESTED_REMOVE_BATCH_SIZE
+  }
+}
+
+export type RemoveLiquidityBatch = {
+  batchIndex: number
+  binIds: number[]
+  calls: McpCall[]
+  summary: {
+    liquidityAmounts: string[]
+    amountXMin: string
+    amountYMin: string
+    lpApprovalNeeded: boolean
+  }
+}
+
+export async function buildRemoveLiquidityBatches(params: {
+  client: BasePublicClient
+  wallet: Address
+  version: LbVersion
+  pair?: Address
+  tokenX?: Token
+  tokenY?: Token
+  binStep?: number
+  binIds: number[]
+  liquidityAmounts: bigint[]
+  amountSlippageBps: number
+  ttl: number
+  batchSize: number
+  nativeX?: boolean
+  nativeY?: boolean
+}): Promise<{
+  batches: RemoveLiquidityBatch[]
+  router: Address
+  pairAddress: Address
+  activeId: number
+}> {
+  const chunks = chunkArray(
+    params.binIds.map((id, i) => ({ id, amount: params.liquidityAmounts[i]! })),
+    params.batchSize
+  )
+
+  const batches: RemoveLiquidityBatch[] = []
+  let router: Address | undefined
+  let pairAddress: Address | undefined
+  let activeId = 0
+
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i]!
+    const binIds = chunk.map((c) => c.id)
+    const amounts = chunk.map((c) => c.amount)
+    const built = await buildRemoveLiquidityCalls({
+      client: params.client,
+      wallet: params.wallet,
+      version: params.version,
+      pair: params.pair,
+      tokenX: params.tokenX,
+      tokenY: params.tokenY,
+      binStep: params.binStep,
+      binIds,
+      liquidityAmounts: amounts,
+      amountSlippageBps: params.amountSlippageBps,
+      ttl: params.ttl,
+      nativeX: params.nativeX,
+      nativeY: params.nativeY,
+      assumeLpApproved: i > 0
+    })
+    router = built.router
+    pairAddress = built.pairAddress
+    activeId = built.activeId
+    batches.push({
+      batchIndex: i,
+      binIds,
+      calls: built.calls,
+      summary: {
+        liquidityAmounts: built.liquidityAmounts,
+        amountXMin: built.amountXMin.toString(),
+        amountYMin: built.amountYMin.toString(),
+        lpApprovalNeeded: built.lpApprovalNeeded
+      }
+    })
+  }
+
+  if (!router || !pairAddress) {
+    throw new SectorOneError('EMPTY_BATCH', 'No remove batches were built.')
+  }
+
+  return { batches, router, pairAddress, activeId }
 }
 
 export function parseDistribution(name: string): LiquidityDistribution {

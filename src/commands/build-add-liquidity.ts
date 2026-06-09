@@ -14,6 +14,7 @@ import {
   parseTtlSeconds
 } from '../lib/validation.js'
 import { assertInfiniteApprovalConfirmed } from '../lib/safety.js'
+import { parseBinCount } from '../lib/bin-range.js'
 import { writeJson, writeHuman, writeWarning } from '../lib/output.js'
 
 export function registerBuildAddLiquidity(program: Command): void {
@@ -30,6 +31,10 @@ export function registerBuildAddLiquidity(program: Command): void {
     .requiredOption('--bin-step <n>', 'Pair bin step')
     .option('--lb-version <v>', 'LB version: v2 (Joe 2.0) or v22', 'v2')
     .option('--distribution <name>', 'SPOT | CURVE | BID_ASK', 'SPOT')
+    .option(
+      '--bin-count <n>',
+      'Number of bins centered on activeId (SPOT, CURVE, BID_ASK). Default SDK shape is 11 bins when omitted.'
+    )
     .option('--amount-slippage-bps <n>', 'Amount slippage bps', '50')
     .option('--price-slippage-bps <n>', 'Price slippage bps', '50')
     .option('--ttl <n>', 'Deadline TTL seconds', '1200')
@@ -69,7 +74,20 @@ export function registerBuildAddLiquidity(program: Command): void {
       })
 
       const client = createBasePublicClient()
-      const { calls, router, pairAddress, activeId } = await buildAddLiquidityCalls({
+      const binCountOpt =
+        opts.binCount !== undefined ? parseBinCount(Number(opts.binCount)) : undefined
+
+      const {
+        calls,
+        router,
+        pairAddress,
+        activeId,
+        binCount,
+        binRange,
+        needsWethWrap,
+        approvalCalls,
+        liquidityCalls
+      } = await buildAddLiquidityCalls({
         client,
         wallet,
         tokenX,
@@ -84,6 +102,7 @@ export function registerBuildAddLiquidity(program: Command): void {
         priceSlippageBps,
         distribution: parseDistribution(opts.distribution),
         ttl,
+        binCount: binCountOpt,
         nativeX: Boolean(opts.nativeX),
         nativeY: Boolean(opts.nativeY),
         infiniteApproval: Boolean(opts.infiniteApproval)
@@ -98,11 +117,16 @@ export function registerBuildAddLiquidity(program: Command): void {
           pair: pairAddress,
           activeId,
           binStep,
+          binCount,
+          binRange,
           tokenX: getAddress(tokenX.address),
           tokenY: getAddress(tokenY.address),
           distribution: opts.distribution,
           router: getAddress(router),
           approvalType: opts.infiniteApproval ? 'infinite' : 'exact',
+          needsWethWrap,
+          approvalCalls,
+          liquidityCalls,
           ...(opts.infiniteApproval
             ? { approvalRisk: 'unlimited allowance granted to router' }
             : {})

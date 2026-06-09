@@ -13,11 +13,24 @@ TypeScript CLI for [SectorOne DLMM](https://sectorone.xyz) on **Base mainnet** â
 ## What This Is Not
 
 - Not a web app
-- Does **not** sign or broadcast transactions
-- Does **not** use private keys or local wallets
+- Default flow does **not** sign or broadcast (Base MCP approves in Base Account)
 - Not multi-chain (Base `8453` only)
 
-The user approves transactions in **Base Account** via Base MCP.
+Optional **local signed execution** (`PRIVATE_KEY`, `npm run position:*`) is documented in `.env.example` â€” not for MCP/Bankr agent flows.
+
+The user approves transactions in **Base Account** via Base MCP (default path).
+
+## Liquidity / rebalance commands
+
+| Command | Purpose |
+| --- | --- |
+| `discover-lp-bins` | Find wallet LP bins |
+| `check-lp-approval` | ERC-1155 router approval on pair |
+| `build-rebalance-liquidity` | Batched remove + add |
+| `build-remove-liquidity --batch-size 10` | Split large removes |
+| `build-add-liquidity --bin-count N` | SPOT/CURVE/BID_ASK width |
+
+See [docs/agent-friction-report.md](docs/agent-friction-report.md) and Sectoroneskills `rebalance-playbook.md`.
 
 ## Install
 

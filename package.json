@@ -10,6 +10,8 @@
     "sectorone": "tsx src/cli/sectorone.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
+    "position:execute": "tsx scripts/execute-add-liquidity.ts",
+    "position:rebalance": "tsx scripts/execute-rebalance.ts",
     "bootstrap": "node scripts/bootstrap-sectorone.mjs && node scripts/build-sectorone-sdk.mjs",
     "preinstall": "node scripts/bootstrap-sectorone.mjs",
     "postinstall": "node scripts/build-sectorone-sdk.mjs"

@@ -11,6 +11,10 @@ import { registerBuildAddLiquidity } from '../commands/build-add-liquidity.js'
 import { registerBuildRemoveLiquidity } from '../commands/build-remove-liquidity.js'
 import { registerBuildCreatePool } from '../commands/build-create-pool.js'
 import { registerReadPosition } from '../commands/read-position.js'
+import { registerBuildRebalanceLiquidity } from '../commands/build-rebalance-liquidity.js'
+import { registerDiscoverLpBins } from '../commands/discover-lp-bins.js'
+import { registerCheckLpApproval } from '../commands/check-lp-approval.js'
+import { registerWalletBalances } from '../commands/wallet-balances.js'
 import { registerNormalizeCalls } from '../commands/normalize-calls.js'
 import { isSectorOneError } from '../lib/errors.js'
 import { exitWithError, writeError } from '../lib/output.js'
@@ -32,6 +36,10 @@ registerBuildAddLiquidity(program)
 registerBuildRemoveLiquidity(program)
 registerBuildCreatePool(program)
 registerReadPosition(program)
+registerDiscoverLpBins(program)
+registerCheckLpApproval(program)
+registerWalletBalances(program)
+registerBuildRebalanceLiquidity(program)
 registerNormalizeCalls(program)
 
 program.exitOverride()
