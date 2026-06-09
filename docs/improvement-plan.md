@@ -11,7 +11,7 @@
 | P1 | `build-rebalance-liquidity` | Done |
 | P1 | Local `position:execute` / `position:rebalance` / `position:withdraw` | Done |
 | P1 | Add summary metadata (`needsWethWrap`, etc.) | Done |
-| P2 | SDK upstream `supportsNativeLiquidity` + bin limits | CLI shim in `src/lib/native-liquidity.ts`; SDK TBD |
+| P2 | SDK upstream `supportsNativeLiquidity` + bin limits | CLI shim today — see [docs/sdk-upstream-p2.md](docs/sdk-upstream-p2.md) |
 
 ## Verification
 
