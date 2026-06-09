@@ -16,9 +16,18 @@ TypeScript CLI for [SectorOne DLMM](https://sectorone.xyz) on **Base mainnet** �
 - Default flow does **not** sign or broadcast (Base MCP approves in Base Account)
 - Not multi-chain (Base `8453` only)
 
-Optional **local signed execution** (`PRIVATE_KEY`, `npm run position:*`) is documented in `.env.example` — not for MCP/Bankr agent flows.
+Optional **local signed execution** (`PRIVATE_KEY`):
 
-The user approves transactions in **Base Account** via Base MCP (default path).
+| Script | Purpose |
+| --- | --- |
+| `npm run position:execute` | Add liquidity only |
+| `npm run position:withdraw` | Remove only (batched; uses `discover-lp-bins` or `BIN_IDS`) |
+| `npm run position:rebalance` | Batched remove + add |
+
+Not for MCP/Bankr agent flows — those use unsigned CLI + `send_calls` / Bankr submit.  
+Withdraw-only unsigned: `build-remove-liquidity --batch-size 10 --json`.
+
+**Agents also need skills:** `npx skills add DoctorTangle/Sectoroneskills --skill sectorone-dlmm` — the CLI repo alone does not install agent instructions.
 
 ## Liquidity / rebalance commands
 

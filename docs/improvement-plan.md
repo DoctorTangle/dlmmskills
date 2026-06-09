@@ -9,9 +9,9 @@
 | P0 | Rebalance playbook in skills | Done |
 | P1 | `--batch-size` on remove | Done |
 | P1 | `build-rebalance-liquidity` | Done |
-| P1 | Local `position:execute` / `position:rebalance` | Done |
+| P1 | Local `position:execute` / `position:rebalance` / `position:withdraw` | Done |
 | P1 | Add summary metadata (`needsWethWrap`, etc.) | Done |
-| P2 | SDK `supportsNativeLiquidity` | Future |
+| P2 | SDK upstream `supportsNativeLiquidity` + bin limits | CLI shim in `src/lib/native-liquidity.ts`; SDK TBD |
 
 ## Verification
 

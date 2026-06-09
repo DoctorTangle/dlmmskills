@@ -30,7 +30,7 @@ The official MCP path (unsigned CLI + Base MCP `send_calls`) works well for swap
 | Add width | `--bin-count` for SPOT/CURVE/BID_ASK |
 | Remove approve | `setApprovalForAll` in `buildRemoveLiquidityCalls` |
 | Native guard | `NATIVE_LIQUIDITY_UNSUPPORTED` on v2 Base |
-| Local execute | `npm run position:execute`, `position:rebalance` |
+| Local execute | `npm run position:execute`, `position:withdraw`, `position:rebalance` |
 
 ### Skills (Sectoroneskills)
 
